@@ -717,6 +717,7 @@ function shellLayout(navHtml, contentHtml, titleText, subText){
 /* ============================= DINKES SHELL ============================= */
 const DINKES_TABS = [
   {id:'ringkasan', label:'Ringkasan', icon:'◎'},
+  {id:'analisis', label:'Analisis & RTL', icon:'✦'},
   {id:'inm', label:'Data INM', icon:'▤'},
   {id:'pmp', label:'Data PMP', icon:'▥'},
   {id:'ikp', label:'Insiden (IKP)', icon:'⚑'},
@@ -728,6 +729,7 @@ const DINKES_TABS = [
   {id:'fasilitas', label:'Kelola Fasilitas', icon:'⌂'},
   {id:'akun', label:'Kelola Akun', icon:'◐'},
   {id:'target', label:'Target & Batas Waktu', icon:'◈'},
+  {id:'log', label:'Log Penghapusan', icon:'⌫'},
 ];
 function renderDinkesShell(){
   const nav = DINKES_TABS.map(t=>`<div class="navlink ${STATE.dinkesTab===t.id?'active':''}" onclick="setDinkesTab('${t.id}')"><span>${t.icon}</span> ${t.label}</div>`).join('');
@@ -735,6 +737,7 @@ function renderDinkesShell(){
   if(!STATE.facilitiesLoaded){ shellLayout(nav, `<div class="spinner"></div>`, 'Memuat...'); return; }
   switch(STATE.dinkesTab){
     case 'ringkasan': [title,sub,content]=viewRingkasan(); break;
+    case 'analisis': [title,sub,content]=viewDinkesAnalisis(); break;
     case 'inm': [title,sub,content]=viewDinkesINM(); break;
     case 'pmp': [title,sub,content]=viewDinkesPMP(); break;
     case 'ikp': [title,sub,content]=viewDinkesIKP(); break;
@@ -746,6 +749,7 @@ function renderDinkesShell(){
     case 'fasilitas': [title,sub,content]=viewFasilitas(); break;
     case 'akun': [title,sub,content]=viewAkun(); break;
     case 'target': [title,sub,content]=viewTarget(); break;
+    case 'log': [title,sub,content]=viewLog(); break;
   }
   shellLayout(nav, content, title, sub);
   afterRenderHook();
@@ -1446,6 +1450,7 @@ const FAC_TABS = [
   {id:'audit', label:'Audit Internal', icon:'⌘'},
   {id:'risiko', label:'Manajemen Risiko', icon:'▲'},
   {id:'mfk', label:'MFK & K3', icon:'⚒'},
+  {id:'analisis', label:'Analisis & RTL', icon:'✦'},
   {id:'riwayat', label:'Riwayat & Grafik', icon:'∿'},
   {id:'profil', label:'Profil', icon:'●'},
 ];
@@ -1462,6 +1467,7 @@ function renderFacilityShell(){
     case 'risiko': [title,sub,content]=viewFacRisk(fac); break;
     case 'mfk': [title,sub,content]=viewFacMfk(fac); break;
     case 'riwayat': [title,sub,content]=viewFacRiwayat(fac); break;
+    case 'analisis': [title,sub,content]=viewFacAnalisis(fac); break;
     case 'profil': [title,sub,content]=viewFacProfil(fac); break;
   }
   shellLayout(nav, content, title, sub);
@@ -3359,9 +3365,12 @@ async function openVerifikasiModal(collection, docId, reloadFn){
       </select>
       <label>Catatan</label>
       <textarea id="vf-catatan" rows="3" style="margin-bottom:16px;">${esc(it.catatanVerifikasi||'')}</textarea>
-      <div style="display:flex; gap:8px; justify-content:flex-end;">
-        <button class="btn btn-ghost" onclick="document.getElementById('verifikasi-modal-host').remove()">Batal</button>
-        <button class="btn btn-primary" onclick="saveVerifikasi('${collection}','${docId}')">Simpan</button>
+      <div style="display:flex; gap:8px; justify-content:space-between; align-items:center;">
+        <button class="btn btn-danger" onclick="verifDelete('${collection}','${docId}')">Hapus Data</button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-ghost" onclick="document.getElementById('verifikasi-modal-host').remove()">Batal</button>
+          <button class="btn btn-primary" onclick="saveVerifikasi('${collection}','${docId}')">Simpan</button>
+        </div>
       </div>`);
     window.__verifikasiReload = reloadFn;
   }catch(e){ toast('Gagal membuka data: '+e.message, 'error'); }
@@ -3428,7 +3437,7 @@ function openIndicatorVerifModal(cfg){
       <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 14px;">Periksa berkas bukti tiap indikator, lalu tetapkan statusnya.</p>
       ${blocks}
       <div style="display:flex; gap:8px; justify-content:space-between; flex-wrap:wrap; margin-top:6px;">
-        <button class="btn btn-secondary" onclick="ivMarkAll()">Tandai semua yang terisi: Terverifikasi</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;"><button class="btn btn-secondary" onclick="ivMarkAll()">Tandai semua yang terisi: Terverifikasi</button><button class="btn btn-danger" onclick="ivDelete()">Hapus Laporan</button></div>
         <div style="display:flex; gap:8px;">
           <button class="btn btn-ghost" onclick="document.getElementById('iv-modal-host').remove()">Batal</button>
           <button class="btn btn-primary" onclick="saveIndicatorVerif()">Simpan Verifikasi</button>
@@ -3496,9 +3505,9 @@ async function loadFacInm(facilityId, period){
       </tbody>
     </table>
   </div>
-  ${docData.buktiDukungUrl?`<div style="font-size:12.5px; margin-top:10px;">Bukti dukung umum (unggahan lama): <a href="${esc(docData.buktiDukungUrl)}" target="_blank" rel="noopener">${esc(docData.buktiDukungName||'Lihat file')}</a></div>`:''}
+  ${docData.buktiDukungUrl?`<div style="font-size:12.5px; margin-top:10px;">Bukti dukung umum (unggahan lama): <a href="${esc(docData.buktiDukungUrl)}" target="_blank" rel="noopener">${esc(docData.buktiDukungName||'Lihat file')}</a> <button class="btn btn-ghost no-print" style="padding:0 6px; color:var(--rust);" onclick="removeLegacyBukti('inm_reports','${docId}')">× hapus</button></div>`:''}
   <div id="inm-upload-status" style="font-size:12.5px; color:var(--ink-soft); margin-top:12px; min-height:18px;"></div>
-  <button class="btn btn-primary" id="inm-save-btn" onclick="saveFacInm('${facilityId}','${period}')">Simpan Data INM</button>
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"><button class="btn btn-primary" id="inm-save-btn" onclick="saveFacInm('${facilityId}','${period}')">Simpan Data INM</button>${doc.exists && !docData.verifiedBy ? `<button class="btn btn-danger no-print" onclick="deleteReportFac('inm_reports','${facilityId}','${period}')">Hapus Laporan Periode Ini</button>` : ''}</div>${doc.exists && docData.verifiedBy ? `<div class="no-print" style="font-size:12px; color:var(--ink-soft); margin-top:10px;">Laporan ini sudah ditinjau Dinkes sehingga tidak bisa dihapus oleh fasilitas. Anda tetap bisa memperbaiki angka/bukti lalu menyimpan ulang (statusnya otomatis menjadi "Perlu verifikasi ulang"), atau meminta Dinkes menghapusnya.</div>` : ''}
   `;
   INM.forEach(ind=>{
     const numEl = el.querySelector(`[data-inm-num="${ind.id}"]`);
@@ -3642,7 +3651,7 @@ async function loadRingkasan(){
     return {facilityId:f.id, name:f.name, values, reportedCount, exists:doc.exists, submittedAt:data&&data.submittedAt};
   }));
   ringkasanData = results; ringkasanLoading = false;
-  if(STATE.dinkesTab==='ringkasan' || STATE.dinkesTab==='kepatuhan') renderDinkesShell();
+  if(STATE.dinkesTab==='ringkasan' || STATE.dinkesTab==='kepatuhan' || STATE.dinkesTab==='analisis') renderDinkesShell();
 }
 function viewKepatuhan(){
   if(!ringkasanData){ loadRingkasan(); }
@@ -3784,7 +3793,7 @@ async function loadPmpForFacility(facilityId, period, targetElId, editable, leve
   </div>
   ${editable
     ? `<div id="pmp-upload-status" style="font-size:12.5px; color:var(--ink-soft); margin-top:12px; min-height:18px;"></div>
-       <button class="btn btn-primary" id="pmp-save-btn" onclick="savePmpReport('${facilityId}','${period}','${level}')">Simpan Data PMP</button>`
+       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"><button class="btn btn-primary" id="pmp-save-btn" onclick="savePmpReport('${facilityId}','${period}','${level}')">Simpan Data PMP</button>${reportDoc.exists && !rd.verifiedBy ? `<button class="btn btn-danger no-print" onclick="deleteReportFac('pmp_reports','${facilityId}','${period}','${level}')">Hapus Laporan Periode Ini</button>` : ''}</div>${reportDoc.exists && rd.verifiedBy ? `<div class="no-print" style="font-size:12px; color:var(--ink-soft); margin-top:10px;">Laporan ini sudah ditinjau Dinkes sehingga tidak bisa dihapus oleh fasilitas. Anda tetap bisa memperbaiki angka/bukti lalu menyimpan ulang, atau meminta Dinkes menghapusnya.</div>` : ''}`
     : `<button class="btn btn-secondary no-print" style="margin-top:14px;" onclick="openPmpVerif('${facilityId}','${period}','${level}')">Verifikasi Bukti Dukung</button>`}
   `;
   if(editable){
@@ -3927,6 +3936,781 @@ async function changePmpItemLevel(facilityId, itemId, newLevel){
     await db.collection('pmp_indicators').doc(facilityId).collection('items').doc(itemId).update(upd);
     openPmpDefModal(facilityId); reloadPmpFacBody();
   }catch(e){ toast('Gagal: '+e.message, 'error'); }
+}
+
+
+/* =====================================================================
+   PEMBARUAN V3 — koreksi & penghapusan data yang keliru
+   - Setiap penghapusan wajib beralasan & tercatat di "Log Penghapusan" (Dinkes)
+   - Fasilitas tidak bisa menghapus data yang sudah diverifikasi Dinkes
+   - Bukti dukung modul non-INM/PMP bisa diganti tanpa menghapus catatan
+   - Dinkes bisa menghapus data fasilitas (dengan alasan)
+   ===================================================================== */
+const MODUL_LABEL = {ikp_reports:'IKP', ppi_pajanan:'PPI — Laporan Pajanan', ppi_checklist:'PPI — Daftar Tilik', ppi_audit:'PPI — Audit Kualitas',
+  audit_form1:'Audit — Hasil Indikator', audit_temuan:'Audit — Temuan', risk_register:'Risiko — Register', risk_profil:'Risiko — Profil', risk_pemantauan:'Risiko — Pemantauan',
+  mfk_register:'MFK — Register Risiko', k3_pemetaan:'K3 — Pemetaan', k3_perencanaan:'K3 — Perencanaan', k3_b3:'K3 — Inventaris B3', inm_reports:'INM', pmp_reports:'PMP'};
+const BUKTI_MODULE_BY_COLLECTION = {ikp_reports:'IKP', ppi_pajanan:'PPI-Laporan-Pajanan', ppi_checklist:'PPI-Daftar-Tilik', ppi_audit:'PPI-Audit-Kualitas',
+  audit_form1:'Audit-Hasil-Indikator', audit_temuan:'Audit-Temuan', risk_register:'Risiko-Register', risk_profil:'Risiko-Profil', risk_pemantauan:'Risiko-Pemantauan',
+  mfk_register:'MFK-Register-Risiko', k3_pemetaan:'K3-Pemetaan', k3_perencanaan:'K3-Perencanaan', k3_b3:'K3-Inventaris-B3'};
+
+function recordSummary(collection, d){
+  const cut = (s,n)=>String(s||'').substring(0,n);
+  const m = {
+    ikp_reports: x=>[x.tanggal, x.unit, cut(x.deskripsi,60)], ppi_pajanan: x=>[x.tanggalLaporan, x.nama], ppi_checklist: x=>[x.period, x.ruang],
+    ppi_audit: x=>[x.tanggal, x.ruang], audit_form1: x=>[x.tanggal, cut(x.indikator,60)], audit_temuan: x=>[x.tanggal, cut(x.temuan,60)],
+    risk_register: x=>[x.kodeRisiko, cut(x.risiko,60)], risk_profil: x=>[x.kodeRisiko, cut(x.risikoPrioritas,60)], risk_pemantauan: x=>[x.kodeRisiko, x.trendRisiko],
+    mfk_register: x=>[x.unitKerja, cut(x.risiko,60)], k3_pemetaan: x=>[x.klaster, x.ruangPelayanan], k3_perencanaan: x=>[x.klaster, cut(x.kegiatan,60)],
+    k3_b3: x=>[x.bulan, x.namaBahan], inm_reports: x=>['Periode '+x.period], pmp_reports: x=>['Periode '+x.period+(x.level==='fasyankes'?' (Tahunan)':'')]
+  };
+  const f = m[collection];
+  return (f ? f(d) : [collection]).filter(Boolean).join(' — ');
+}
+function deletionLogData(collection, id, d, alasan){
+  const snapshot = JSON.stringify(d, (k,v)=> (v && typeof v.toDate==='function') ? v.toDate().toISOString() : v).substring(0,60000);
+  const p = STATE.profile || {};
+  return {facilityId:d.facilityId||null, collection, docId:id, modul:MODUL_LABEL[collection]||collection, ringkasan:recordSummary(collection,d), snapshot, alasan,
+    deletedBy:p.name||p.email||(STATE.user&&STATE.user.email)||'', deletedByUid:STATE.user.uid, deletedByRole:p.role||'',
+    deletedAt:firebase.firestore.FieldValue.serverTimestamp()};
+}
+function lockedForFacility(collection, d){
+  if(collection==='inm_reports' || collection==='pmp_reports') return !!d.verifiedBy;
+  return d.statusVerifikasi==='Terverifikasi';
+}
+async function deleteRecordWithLog(collection, id, reloadFn){
+  try{
+    const ref = db.collection(collection).doc(id);
+    const snap = await ref.get();
+    if(!snap.exists){ toast('Data sudah tidak ada.', 'error'); if(reloadFn) reloadFn(); return; }
+    const d = snap.data();
+    const isDinkesUser = STATE.profile && STATE.profile.role==='dinkes';
+    if(!isDinkesUser && lockedForFacility(collection, d)){
+      toast('Data ini sudah ditinjau/diverifikasi Dinkes sehingga tidak bisa dihapus oleh fasilitas. Perbaiki datanya, atau hubungi Dinkes bila perlu dihapus.', 'error');
+      return;
+    }
+    const alasan = prompt('Alasan penghapusan (wajib diisi, mis. "salah input periode"):');
+    if(!alasan || !alasan.trim()) return;
+    if(!confirm('Yakin menghapus data ini?\n\nPenghapusan dicatat di log dan tidak dapat dibatalkan.')) return;
+    const batch = db.batch();
+    batch.set(db.collection('deletion_log').doc(), deletionLogData(collection, id, d, alasan.trim()));
+    batch.delete(ref);
+    await batch.commit();
+    toast('Data dihapus.');
+    if(reloadFn) reloadFn();
+  }catch(e){ toast('Gagal menghapus: '+e.message, 'error'); }
+}
+function deleteReportFac(collection, facilityId, period, level){
+  deleteRecordWithLog(collection, facilityId+'_'+period, ()=>{
+    if(collection==='inm_reports') loadFacInm(facilityId, period);
+    else loadPmpForFacility(facilityId, period, 'pmp-fac-body', true, level||'unit');
+  });
+}
+async function removeLegacyBukti(collection, docId){
+  if(!confirm('Hapus bukti dukung lama ini dari daftar? (Berkas asli tetap tersimpan di Google Drive sebagai arsip.)')) return;
+  try{
+    await db.collection(collection).doc(docId).update({buktiDukungUrl:'', buktiDukungName:''});
+    toast('Bukti dukung lama dihapus dari daftar.'); renderFacilityShell();
+  }catch(e){ toast('Gagal menghapus: '+e.message, 'error'); }
+}
+function ivDelete(){
+  const cfg = window.__ivCfg; if(!cfg) return;
+  deleteRecordWithLog(cfg.collection, cfg.docId, ()=>{ const h = document.getElementById('iv-modal-host'); if(h) h.remove(); if(cfg.reload) cfg.reload(); });
+}
+function verifDelete(collection, docId){
+  deleteRecordWithLog(collection, docId, ()=>{ const h = document.getElementById('verifikasi-modal-host'); if(h) h.remove(); if(window.__verifikasiReload) window.__verifikasiReload(); });
+}
+
+/* Tombol "Hapus" pada daftar catatan (fasilitas) kini lewat pengaman + log */
+function deleteIkpReport(id, facilityId){ return deleteRecordWithLog('ikp_reports', id, ()=>loadFacIkpList(facilityId)); }
+function deletePpiDoc(collection, id, kind){
+  const fid = STATE.profile.facilityId || STATE.selectedFacilityId;
+  return deleteRecordWithLog(collection, id, ()=>{
+    if(kind==='ppi_pajanan') loadPpiPajananList(fid);
+    if(kind==='ppi_checklist') loadPpiChecklistList(fid);
+    if(kind==='ppi_audit') loadPpiAuditList(fid);
+  });
+}
+function deleteAuditDoc(collection, id, kind){
+  const fid = STATE.profile.facilityId || STATE.selectedFacilityId;
+  return deleteRecordWithLog(collection, id, ()=>{ if(kind==='form1') loadAuditForm1List(fid); if(kind==='temuan') loadAuditTemuanList(fid); });
+}
+function deleteRiskDoc(collection, id, kind){
+  const fid = STATE.profile.facilityId || STATE.selectedFacilityId;
+  return deleteRecordWithLog(collection, id, ()=>{ if(kind==='register') loadRiskRegisterList(fid); if(kind==='profil') loadRiskProfilList(fid); if(kind==='pemantauan') loadRiskPemantauanList(fid); });
+}
+function deleteMfkDoc(collection, id, kind){
+  const fid = STATE.profile.facilityId || STATE.selectedFacilityId;
+  return deleteRecordWithLog(collection, id, ()=>{
+    if(kind==='register') loadMfkRegisterList(fid); if(kind==='pemetaan') loadK3PemetaanList(fid);
+    if(kind==='perencanaan') loadK3PerencanaanList(fid); if(kind==='b3') loadK3B3List(fid);
+  });
+}
+
+/* Verifikasi catatan: simpan jumlah berkas saat diverifikasi (untuk deteksi perubahan setelahnya) */
+async function saveVerifikasi(collection, docId){
+  const status = document.getElementById('vf-status').value;
+  const catatan = document.getElementById('vf-catatan').value.trim();
+  try{
+    const ref = db.collection(collection).doc(docId);
+    const snap = await ref.get();
+    const nf = snap.exists ? buktiFilesOf(snap.data()).length : 0;
+    await ref.update({statusVerifikasi:status, catatanVerifikasi:catatan, verifiedBy:STATE.profile.name||STATE.user.email,
+      verifiedAt:firebase.firestore.FieldValue.serverTimestamp(), verifiedFiles:nf});
+    toast('Status verifikasi tersimpan.');
+    const host = document.getElementById('verifikasi-modal-host'); if(host) host.remove();
+    if(window.__verifikasiReload) window.__verifikasiReload();
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+function buktiTd(it, collection, reloadFnStr, isDinkesView){
+  const files = buktiFilesOf(it);
+  const stale = it.statusVerifikasi && it.statusVerifikasi!=='Belum Diverifikasi' && it.verifiedFiles!==undefined && Number(it.verifiedFiles)!==files.length;
+  const badge = stale ? '<span class="pill pill-warn">Perlu verifikasi ulang</span>' : verifikasiBadgeHtml(it.statusVerifikasi);
+  const links = files.length ? files.map((f,i)=>`<a href="${esc(f.url)}" target="_blank" rel="noopener" style="display:block;">${files.length>1?'File '+(i+1):'Lihat'}</a>`).join('') : '—';
+  const waktu = (collection==='ppi_checklist' || collection==='k3_b3') ? `<div style="margin-top:4px;">${recordWaktuBadge(it)}</div>` : '';
+  if(isDinkesView){
+    return `<td>${links}</td><td>${badge}${waktu}
+      <button class="btn btn-ghost no-print" style="padding:3px 7px; font-size:11px; margin-top:4px; display:block;" onclick="openVerifikasiModal('${collection}','${it.id}', ${reloadFnStr})">Verifikasi</button></td>`;
+  }
+  const catatan = it.catatanVerifikasi ? `<div style="font-size:11px; color:var(--ink-soft); margin-top:3px; white-space:normal; max-width:160px;">${esc(it.catatanVerifikasi)}</div>` : '';
+  return `<td>${links}<button class="btn btn-ghost no-print" style="padding:2px 6px; font-size:11px; margin-top:4px; display:block;" onclick="openBuktiManager('${collection}','${it.id}')">Kelola bukti</button></td>
+    <td>${badge}${catatan}${waktu}</td>`;
+}
+
+/* Kelola bukti dukung pada catatan (ganti file tanpa menghapus catatan) */
+function evidencePatch(files){
+  return {buktiFiles:files, buktiDukungUrl:files[0]?files[0].url:'', buktiDukungName:files[0]?files[0].name:''};
+}
+async function openBuktiManager(collection, docId){
+  try{
+    const snap = await db.collection(collection).doc(docId).get();
+    if(!snap.exists){ toast('Data tidak ditemukan.', 'error'); return; }
+    const files = buktiFilesOf(snap.data());
+    const old = document.getElementById('bm-modal-host'); if(old) old.remove();
+    const host = document.createElement('div'); host.id = 'bm-modal-host'; document.body.appendChild(host);
+    host.innerHTML = modalWrap(`
+      <h3 class="serif" style="margin:0 0 6px;">Kelola Bukti Dukung</h3>
+      <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 12px;">Hapus file yang keliru dari daftar, atau tambahkan file pengganti. Berkas asli tetap tersimpan di Google Drive Dinkes sebagai arsip.</p>
+      <div style="margin-bottom:12px;">${files.length ? files.map((f,i)=>`<div style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:4px;">
+          <a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name||'File')}</a>
+          <button class="btn btn-ghost" style="padding:0 8px; color:var(--rust);" onclick="removeRecordBukti('${collection}','${docId}',${i})">× hapus</button></div>`).join('')
+        : '<span style="color:var(--ink-soft);">Belum ada berkas.</span>'}</div>
+      <label>Tambah file (boleh lebih dari satu; maks 10MB/file)</label>
+      <input type="file" id="bm-file" multiple style="margin-bottom:4px;">
+      <div id="bm-status" style="font-size:12px; color:var(--ink-soft); margin-bottom:12px; min-height:16px;"></div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="document.getElementById('bm-modal-host').remove()">Tutup</button>
+        <button class="btn btn-primary" onclick="addRecordBukti('${collection}','${docId}')">Unggah &amp; Simpan</button>
+      </div>`);
+  }catch(e){ toast('Gagal membuka data: '+e.message, 'error'); }
+}
+async function removeRecordBukti(collection, docId, idx){
+  if(!confirm('Hapus file ini dari daftar bukti dukung? (Berkas asli tetap tersimpan di Google Drive sebagai arsip.)')) return;
+  try{
+    const ref = db.collection(collection).doc(docId);
+    const snap = await ref.get();
+    const next = buktiFilesOf(snap.data()).filter((_,i)=>i!==idx);
+    await ref.update(evidencePatch(next));
+    toast('File dihapus dari daftar.'); renderFacilityShell(); openBuktiManager(collection, docId);
+  }catch(e){ toast('Gagal menghapus: '+e.message, 'error'); }
+}
+async function addRecordBukti(collection, docId){
+  const input = document.getElementById('bm-file');
+  if(!input || !input.files.length){ toast('Pilih file terlebih dahulu.', 'error'); return; }
+  try{
+    const ref = db.collection(collection).doc(docId);
+    const snap = await ref.get(); const d = snap.data();
+    const fid = d.facilityId || (STATE.profile && STATE.profile.facilityId);
+    const files = await uploadFiles(input.files, buildUploadMeta(fid, BUKTI_MODULE_BY_COLLECTION[collection]||collection, currentPeriod(), ''), document.getElementById('bm-status'));
+    if(!files) return;
+    await ref.update(evidencePatch(buktiFilesOf(d).concat(files)));
+    toast('Bukti dukung ditambahkan.'); renderFacilityShell(); openBuktiManager(collection, docId);
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+
+/* Log Penghapusan (Dinkes) */
+let deletionLogCache = null;
+async function loadDeletionLog(){
+  try{
+    const snap = await db.collection('deletion_log').orderBy('deletedAt','desc').limit(300).get();
+    deletionLogCache = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  }catch(e){ deletionLogCache = []; toast('Gagal memuat log: '+e.message, 'error'); }
+  if(STATE.dinkesTab==='log') renderDinkesShell();
+}
+function viewLog(){
+  if(!deletionLogCache) loadDeletionLog();
+  const facName = id => (STATE.facilities.find(f=>f.id===id)||{}).name || '—';
+  const rows = (deletionLogCache||[]).map(l=>{
+    const dt = tsToDate(l.deletedAt);
+    const when = dt ? fmtDateID(dt)+' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0') : '—';
+    return `<tr><td>${when}</td><td style="font-weight:600;">${esc(facName(l.facilityId))}</td><td>${esc(l.modul||l.collection)}</td>
+      <td style="white-space:normal; min-width:200px;">${esc(l.ringkasan||'—')}</td><td>${esc(l.deletedBy||'—')} <span style="color:var(--ink-soft); font-size:11.5px;">(${l.deletedByRole==='dinkes'?'Dinkes':'Fasilitas'})</span></td>
+      <td style="white-space:normal; min-width:180px;">${esc(l.alasan||'—')}</td></tr>`;
+  }).join('');
+  const content = `
+    <p style="color:var(--ink-soft); font-size:13px; margin:0 0 14px;">Setiap data yang dihapus (oleh fasilitas maupun Dinkes) tercatat di sini beserta alasannya. Salinan lengkap data yang dihapus ikut tersimpan di database sebagai arsip.</p>
+    <div class="card scrollx" style="padding:4px;" id="log-table">
+      <table><thead><tr><th>Waktu</th><th>Fasilitas</th><th>Modul</th><th>Data yang Dihapus</th><th>Dihapus Oleh</th><th>Alasan</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" style="padding:18px; color:var(--ink-soft);">${deletionLogCache?'Belum ada penghapusan tercatat.':'Memuat…'}</td></tr>`}</tbody></table>
+    </div>
+    ${printExportToolbar('Log Penghapusan Data', '', '#log-table', 'Log_Penghapusan.xlsx', null, null)}`;
+  return ['Log Penghapusan Data', 'Riwayat data yang dihapus beserta alasan', content];
+}
+
+
+/* =====================================================================
+   PEMBARUAN V4 — Analisis, kesimpulan, & Rencana Tindak Lanjut (RTL) otomatis
+   Berbasis aturan (bukan AI): membaca data yang sudah diinput, membandingkan dengan
+   target/kriteria, lalu menyusun kesimpulan dan usulan RTL yang bisa dicetak.
+   ===================================================================== */
+const AN_LEVEL = {high:{label:'Prioritas Tinggi', cls:'pill-bad', order:0}, mid:{label:'Perlu Perhatian', cls:'pill-warn', order:1},
+  info:{label:'Catatan', cls:'pill-warn', order:2}, ok:{label:'Baik', cls:'pill-ok', order:3}};
+const AN_MODUL_ORDER = ['INM','PMP Unit','PMP Puskesmas/Klinik','IKP','PPI','Audit Internal','Manajemen Risiko','MFK & K3','Kepatuhan Pelaporan'];
+const INM_MIN_DEN = {kkt:30, apd:30, identifikasi:30, tb:5, anc:10, kepuasan:30};
+
+/* Basis pengetahuan INM: [kegiatan, penanggung jawab, hari, indikator keberhasilan, min] — min 'mid' = semua yang di bawah target; 'high' = hanya yang jauh di bawah/kronis */
+const INM_KB = {
+  kkt:{
+    penyebab:['Handrub, sabun, air mengalir, atau tisu tidak selalu tersedia di titik pelayanan','Pemahaman 5 momen kebersihan tangan belum merata di semua petugas dan shift','Beban kerja tinggi sehingga kebersihan tangan terlewat','Kurangnya teladan pimpinan dan umpan balik hasil observasi','Observasi belum merata antar unit, shift, dan jenis petugas'],
+    rtl:[
+      ['Penyegaran 5 momen dan 6 langkah kebersihan tangan untuk seluruh petugas (dengan praktik langsung)','Tim PPI',14,'≥ 90% petugas mengikuti; observasi ulang menunjukkan kenaikan','mid'],
+      ['Cek dan lengkapi ketersediaan handrub/sabun/air mengalir/tisu di setiap ruang dan titik pelayanan; buat daftar cek harian','Koordinator ruang / logistik',7,'Ketersediaan 100% pada daftar cek harian','mid'],
+      ['Observasi kepatuhan rutin per unit (minimal mingguan) dan beri umpan balik langsung kepada petugas','PJ Mutu / Tim PPI',30,'Observasi terlaksana tiap minggu; tren capaian naik','mid'],
+      ['Pasang media pengingat 5 momen (poster/stiker) di titik strategis','Tim PPI',7,'Media terpasang di seluruh ruang','mid'],
+      ['Analisis akar masalah (5 Whys/fishbone) di unit dengan capaian terendah dan bahas pada lokakarya mini','PJ Mutu + kepala unit',14,'Dokumen analisis dan rencana perbaikan unit','high'],
+      ['Bahas hasil kepatuhan pada rapat/lokmin bulanan; pimpinan menjadi teladan dan menetapkan komitmen','Kepala Puskesmas/Klinik',30,'Hasil terbahas di lokmin; komitmen tertulis','high']],
+    pertahankan:[['Pertahankan observasi rutin dan umpan balik; bagikan praktik baik antar unit','Tim PPI',30,'Capaian tetap ≥ target selama 3 bulan berturut-turut']],
+    dinkes:'Bimtek/penyegaran PPI (kebersihan tangan) dan monev ketersediaan handrub di fasilitas prioritas'},
+  apd:{
+    penyebab:['Stok APD tidak mencukupi atau jenisnya tidak sesuai kebutuhan tindakan','Petugas belum memahami indikasi APD untuk tiap tindakan','APD tidak mudah dijangkau di ruang pelayanan','Pengawasan pemakaian APD belum rutin','Ukuran/kenyamanan APD kurang sesuai sehingga petugas enggan memakai'],
+    rtl:[
+      ['Inventarisasi kebutuhan dan stok APD per unit, lalu ajukan pengadaan/permintaan sesuai kebutuhan','Logistik/farmasi + PJ Mutu',14,'Stok aman sesuai kebutuhan bulanan','mid'],
+      ['Susun matriks indikasi APD per jenis tindakan dan pasang di ruang pelayanan','Tim PPI',14,'Matriks terpasang di seluruh ruang','mid'],
+      ['Pelatihan singkat memilih, memakai, dan melepas APD dengan praktik langsung','Tim PPI',21,'≥ 90% petugas mengikuti','mid'],
+      ['Supervisi pemakaian APD saat tindakan dan beri umpan balik segera','PJ Mutu / Tim PPI',30,'Supervisi terjadwal; kepatuhan naik','mid'],
+      ['Analisis akar masalah ketidakpatuhan pada unit/tindakan dengan capaian terendah','PJ Mutu + kepala unit',14,'Dokumen analisis dan rencana perbaikan','high'],
+      ['Bahas di lokmin dan tetapkan mekanisme apresiasi dan pembinaan pemakaian APD','Kepala Puskesmas/Klinik',30,'Komitmen/kebijakan tertulis','high']],
+    pertahankan:[['Pertahankan ketersediaan APD dan supervisi rutin; tinjau stok setiap bulan','Logistik + Tim PPI',30,'Capaian tetap 100%']],
+    dinkes:'Monev ketersediaan APD dan bimtek PPI di fasilitas prioritas; fasilitasi pemenuhan kebutuhan APD'},
+  identifikasi:{
+    penyebab:['SOP identifikasi (minimal 2 identitas, mis. nama lengkap dan tanggal lahir/nomor RM) belum diterapkan konsisten','Antrean panjang sehingga konfirmasi identitas dilewati','Pasien dengan nama serupa belum ditandai','Tidak ada gelang/label identitas pada pasien rawat inap atau tindakan','Konfirmasi verbal sebelum tindakan/obat/pengambilan sampel belum menjadi kebiasaan'],
+    rtl:[
+      ['Sosialisasi ulang SOP identifikasi pasien (minimal 2 identitas, konfirmasi verbal) ke seluruh unit','PJ Mutu / Tim Mutu',14,'≥ 90% petugas mengikuti; simulasi lulus','mid'],
+      ['Sediakan gelang/label identitas untuk pasien rawat inap, tindakan, dan rujukan','Kepala unit / logistik',21,'Gelang/label tersedia dan digunakan','mid'],
+      ['Pasang pengingat pada titik kritis (pendaftaran, pemberian obat, tindakan, pengambilan sampel)','Tim Mutu',7,'Pengingat terpasang di titik kritis','mid'],
+      ['Audit/observasi acak per unit dan beri umpan balik','PJ Mutu',30,'Audit dilakukan tiap minggu; capaian naik','mid'],
+      ['Tandai (alert) pasien dengan nama serupa dan sepakati cara khusus verifikasinya','Pendaftaran / perawat',14,'Prosedur khusus diterapkan','high'],
+      ['Analisis akar masalah pada unit dengan capaian terendah','PJ Mutu + kepala unit',14,'Dokumen analisis dan rencana perbaikan','high']],
+    pertahankan:[['Pertahankan audit acak dan pengingat identifikasi; libatkan petugas baru dalam orientasi','PJ Mutu',30,'Capaian tetap 100%']],
+    dinkes:'Bimtek sasaran keselamatan pasien (identifikasi pasien) dan supervisi silang antar fasilitas'},
+  tb:{
+    penyebab:['Pasien putus berobat (loss to follow-up) atau berpindah tanpa tercatat','Pengawas Menelan Obat (PMO) belum ada atau belum efektif','Efek samping obat tidak tertangani sehingga pasien berhenti minum obat','Pemeriksaan dahak follow-up terlewat sehingga hasil akhir tidak tercatat','Hambatan biaya, jarak, atau stigma','Pencatatan hasil akhir pengobatan di register/SITB belum lengkap'],
+    rtl:[
+      ['Telaah kohort per pasien: identifikasi yang gagal, putus berobat, meninggal, pindah, atau belum dievaluasi','Pengelola program TB',7,'Daftar status akhir seluruh pasien kohort','mid'],
+      ['Lacak pasien yang mangkir/putus berobat (kunjungan rumah bersama kader/PMO, telepon) dan ajak kembali berobat','Pengelola TB + kader',14,'Pasien mangkir terlacak ≤ 7 hari','mid'],
+      ['Pastikan setiap pasien memiliki PMO yang dilatih; edukasi kepatuhan minum obat dan efek samping','Pengelola TB',14,'Semua pasien memiliki PMO','mid'],
+      ['Jadwalkan pengingat pemeriksaan dahak follow-up dan kontrol berkala','Pengelola TB / analis lab',14,'Follow-up dahak terlaksana sesuai jadwal','mid'],
+      ['Validasi data register TB dengan SITB dan lengkapi hasil akhir pengobatan','Pengelola TB',14,'Data register dan SITB konsisten','mid'],
+      ['Koordinasi dengan Dinkes/RS rujukan untuk pasien pindah, rujuk balik, dan efek samping berat','Kepala + pengelola TB',14,'Status pasien pindah/rujuk tercatat','high'],
+      ['Lakukan investigasi kontak dan skrining kontak serumah pada pasien baru','Pengelola TB',30,'Kontak terskrining','high']],
+    pertahankan:[['Pertahankan pelacakan mangkir dan pemantauan PMO; tinjau kohort tiap triwulan','Pengelola TB',30,'Angka keberhasilan tetap ≥ target']],
+    dinkes:'Pendampingan program TB (telaah kohort, pelacakan mangkir, validasi SITB) untuk fasilitas prioritas'},
+  anc:{
+    penyebab:['Alat/bahan pemeriksaan (mis. tes Hb, protein/glukosa urin, skrining HIV/sifilis/HBsAg, tablet tambah darah) tidak selalu tersedia','Pemeriksaan sudah dilakukan tetapi belum tercatat lengkap (buku KIA/register)','Alur pelayanan ANC belum mengikuti standar 10T','Petugas belum terlatih atau perlu penyegaran standar ANC','Ibu hamil datang terlambat atau tidak kembali pada kunjungan berikutnya'],
+    rtl:[
+      ['Audit kelengkapan 10T pada register/buku KIA per bidan; tentukan langkah 10T yang paling sering terlewat','Koordinator KIA',14,'Peta langkah 10T yang terlewat','mid'],
+      ['Pastikan alat, bahan, dan layanan laboratorium ANC tersedia (Hb, urin, skrining, TTD)','Logistik / farmasi / lab',14,'Ketersediaan 100%','mid'],
+      ['Gunakan daftar tilik 10T di ruang periksa dan lengkapi pencatatan pada setiap kunjungan','Bidan koordinator',7,'Daftar tilik terpakai pada tiap kunjungan','mid'],
+      ['Penyegaran standar ANC 10T bagi bidan/petugas','Koordinator KIA',30,'≥ 90% petugas mengikuti','mid'],
+      ['Lacak ibu hamil yang belum kembali kunjungan (bersama bidan desa/kader) dan aktifkan kelas ibu hamil','Koordinator KIA + kader',30,'Kunjungan ulang meningkat','mid'],
+      ['Analisis akar masalah dan rencana perbaikan bersama seluruh bidan pada rapat KIA','Koordinator KIA + Kepala',14,'Dokumen analisis dan rencana perbaikan','high']],
+    pertahankan:[['Pertahankan audit kelengkapan 10T berkala dan ketersediaan alat/bahan ANC','Koordinator KIA',30,'Capaian tetap 100%']],
+    dinkes:'Supervisi/bimtek ANC terpadu (10T) dan pemenuhan alat/bahan ANC di fasilitas prioritas'},
+  kepuasan:{
+    penyebab:['Waktu tunggu pelayanan lama','Komunikasi dan keramahan petugas belum optimal','Kenyamanan/kebersihan ruang tunggu dan sarana kurang','Kejelasan informasi alur, biaya, dan prosedur kurang','Ketersediaan obat atau kecepatan layanan penunjang belum memadai','Keluhan dan saran belum ditindaklanjuti','Jumlah atau metode pemilihan responden survei belum representatif'],
+    rtl:[
+      ['Analisis hasil survei per unsur/dimensi dan per unit; tetapkan 2–3 unsur bernilai terendah sebagai prioritas','PJ Mutu',7,'Unsur prioritas teridentifikasi','mid'],
+      ['Tindak lanjuti unsur terendah dengan perbaikan spesifik (mis. alur/antrean, komunikasi, kenyamanan ruang tunggu)','Kepala unit terkait',30,'Perbaikan terlaksana; nilai unsur naik pada survei berikutnya','mid'],
+      ['Kelola keluhan dan saran (kotak saran/media sosial) dengan batas waktu respons, lalu umumkan perbaikan yang dilakukan','PJ Mutu / humas',14,'Keluhan direspons sesuai batas waktu yang ditetapkan','mid'],
+      ['Latihan komunikasi efektif dan pelayanan prima bagi petugas','Kepala / kepegawaian',30,'Pelatihan terlaksana','mid'],
+      ['Lakukan survei ulang dengan jumlah responden memadai dan pemilihan responden acak','PJ Mutu',30,'Survei ulang terlaksana; jumlah responden memadai','mid'],
+      ['Bahas hasil survei di lokmin bersama seluruh unit dan tetapkan target perbaikan per unit','Kepala Puskesmas/Klinik',14,'Target perbaikan per unit disepakati','high']],
+    pertahankan:[['Pertahankan pengelolaan keluhan dan survei berkala; publikasikan perbaikan yang sudah dilakukan','PJ Mutu',30,'Nilai kepuasan tetap ≥ target']],
+    dinkes:'Pendampingan pengelolaan survei kepuasan dan penanganan keluhan di fasilitas prioritas'}
+};
+const PPI_CAT_HINT = {
+  'Cuci Tangan':['Lengkapi sarana kebersihan tangan (air mengalir, sabun cair, lap bersih) dan pastikan petugas mencuci tangan sesuai momen','Tim PPI / koordinator ruang',7],
+  'Alat Pelindung':['Penuhi ketersediaan dan jenis APD di ruang (sarung tangan, masker, gaun, pelindung wajah/kaki, tutup kepala) serta pastikan pemakaiannya','Logistik / Tim PPI',14],
+  'Dekontaminasi Alat':['Terapkan prosedur dekontaminasi: larutan klorin 0,5%, wadah, perendaman 10 menit, dan penyimpanan alat steril kering dan bersih','Tim PPI / petugas sterilisasi',14],
+  'Pengelolaan Alat Tajam':['Perbaiki pengelolaan alat tajam: wadah tahan tusukan, isi tidak melebihi 3/4, tidak ada bagian tajam yang keluar, tidak menyarungkan kembali jarum','Tim PPI / K3',7],
+  'Limbah':['Perbaiki pemilahan limbah medis/non-medis, cegah sampah terkontaminasi tercampur, dan pastikan insinerator/IPAL berfungsi','Sanitarian / Tim PPI',14]
+};
+const PMP_RTL_BASE = [
+  ['Analisis akar masalah bersama unit terkait (fishbone/5 Whys) dan tetapkan 1–2 penyebab dominan','PJ Mutu + kepala unit',7,'Dokumen analisis penyebab','mid'],
+  ['Susun rencana perbaikan yang spesifik (apa, siapa, kapan) dan sosialisasikan ke petugas','Kepala unit',14,'Rencana perbaikan disepakati','mid'],
+  ['Pantau capaian setiap periode (siklus PDSA) dan evaluasi efektivitas perbaikan pada periode berikutnya','PJ Mutu',30,'Capaian naik menuju target','mid'],
+  ['Bahas indikator ini pada rapat/lokmin dan mintakan dukungan pimpinan (sumber daya/kebijakan)','Kepala Puskesmas/Klinik',30,'Keputusan tindak lanjut tercatat','high']];
+
+function anF(modul, level, judul, analisis, penyebab, rtl){ return {modul, level, judul, analisis, penyebab:penyebab||[], rtl:rtl||[]}; }
+function anA(k, pj, hari, ukuran){ return {k, pj, hari, ukuran}; }
+function anSel(x){ return String(Math.round(Math.abs(x)*100)/100); }
+function anP2(n){ return String(n).padStart(2,'0'); }
+function anAddDays(n){ const d = new Date(); d.setDate(d.getDate()+n); return d; }
+function anWindow(period){
+  const parts = period.split('-').map(Number), y = parts[0], m = parts[1];
+  const s = new Date(y, m-3, 1), e = new Date(y, m, 0);
+  const sp = s.getFullYear()+'-'+anP2(s.getMonth()+1);
+  return {startPeriod:sp, endPeriod:period, start:sp+'-01', end:y+'-'+anP2(m)+'-'+anP2(e.getDate())};
+}
+function anPrevPeriods(period, n){
+  const parts = period.split('-').map(Number), y = parts[0], m = parts[1], out = [];
+  for(let i=1;i<=n;i++){ const d = new Date(y, m-1-i, 1); out.push(d.getFullYear()+'-'+anP2(d.getMonth()+1)); }
+  return out;
+}
+function anTrend(p, prev){
+  if(!prev) return '';
+  const d = p - prev.p;
+  if(Math.abs(d)<1) return ' Dibanding '+periodLabel(prev.period)+' ('+fmtPct(prev.p)+') relatif tetap.';
+  return ' Dibanding '+periodLabel(prev.period)+' ('+fmtPct(prev.p)+') '+(d>0?'naik ':'turun ')+anSel(d)+' poin.';
+}
+function anTop(list, n){ return list.slice(0,n); }
+
+/* ---------- INM ---------- */
+function analyzeInm(d){
+  const out = [], stats = {filled:0, achieved:0, below:[]};
+  const cur = d.inm.cur || null, period = d.period;
+  INM.forEach(ind=>{
+    const kb = INM_KB[ind.id], t = getTarget(ind.id);
+    const v = cur && cur.indicators && cur.indicators[ind.id];
+    const den = Number(v&&v.den)||0, num = Number(v&&v.num)||0;
+    if(den<=0){
+      out.push(anF('INM','mid', ind.short+': data belum diisi', 'Numerator/denominator "'+ind.name+'" belum diisi untuk '+periodLabel(period)+', sehingga capaian belum dapat dianalisis.', [],
+        [anA('Lengkapi input "'+ind.name+'" periode '+periodLabel(period)+' pada menu Input INM','PJ Mutu',3,'Data terisi dan tersimpan')]));
+      return;
+    }
+    stats.filled++;
+    const p = pct(num, den);
+    const prevs = (d.inm.prev||[]).map(x=>{ const pv = x.data && x.data.indicators && x.data.indicators[ind.id]; return pv && Number(pv.den)>0 ? {period:x.period, p:pct(pv.num,pv.den)} : null; }).filter(Boolean);
+    let level = p>=t ? 'ok' : (p>=t*0.85 ? 'mid' : 'high');
+    let text = 'Capaian '+fmtPct(p)+' ('+num+' dari '+den+') '+(p>=t?'telah mencapai':'belum mencapai')+' target '+t+'%'+(p<t?' — selisih '+anSel(t-p)+' poin':'')+'.';
+    text += anTrend(p, prevs[0]);
+    const chronic = p<t && prevs.length>=2 && prevs[0].p<t && prevs[1].p<t;
+    const declining = p>=t && prevs[0] && (p-prevs[0].p)<=-5;
+    if(chronic){ text += ' Capaian di bawah target selama 3 bulan berturut-turut, sehingga perlu ditangani sebagai masalah sistemik, bukan kejadian sesaat.'; level = 'high'; }
+    if(declining){ text += ' Capaian menurun cukup tajam meskipun masih memenuhi target — waspadai penurunan berlanjut.'; level = 'mid'; }
+    if(den < (INM_MIN_DEN[ind.id]||10)) text += ' Catatan: jumlah data (denominator '+den+') masih kecil sehingga persentase mudah berubah oleh satu kejadian; perkuat pengumpulan data/sampel.';
+    let rtl = [];
+    if(p>=t){
+      rtl = kb.pertahankan.map(a=>anA(a[0],a[1],a[2],a[3]));
+      if(declining) rtl.push(anA('Telusuri penyebab penurunan capaian '+ind.short+' (unit/shift/petugas) dan koreksi lebih awal','PJ Mutu',14,'Penyebab teridentifikasi; capaian kembali naik'));
+    } else {
+      rtl = kb.rtl.filter(a=>a[4]==='mid' || level==='high').map(a=>anA(a[0],a[1],a[2],a[3]));
+      stats.below.push({short:ind.short, p, t, gap:t-p});
+    }
+    if(p>=t) stats.achieved++;
+    const files = (((cur.bukti||{})[ind.id])||[]).length;
+    if(files===0){ text += ' Bukti dukung belum diunggah.'; rtl.push(anA('Unggah bukti dukung '+ind.short+' (register/rekap observasi/dokumen sumber) agar dapat diverifikasi Dinkes','PJ Mutu',7,'Bukti terunggah')); }
+    const vs = verifState(((cur.verifikasi||{})[ind.id]), num, den, files);
+    if(vs.code==='clarify'){
+      text += ' Dinkes meminta klarifikasi'+(vs.catatan?': "'+vs.catatan+'"':'')+'.';
+      if(level==='ok') level = 'mid';
+      rtl.push(anA('Tindak lanjuti permintaan klarifikasi Dinkes untuk '+ind.short+' (perbaiki data/bukti lalu simpan ulang)','PJ Mutu',7,'Status verifikasi menjadi terverifikasi'));
+    }
+    out.push(anF('INM', level, ind.short+': '+fmtPct(p)+' (target '+t+'%)', text, p<t ? kb.penyebab : [], rtl));
+  });
+  return {findings:out, stats};
+}
+
+/* ---------- PMP ---------- */
+function anGenericIndicator(modul, name, target, cur, prev, prevLabel, perLbl, chronicPrevs, annual){
+  const den = Number(cur&&cur.den)||0, num = Number(cur&&cur.num)||0;
+  if(den<=0) return anF(modul,'mid', name+': data belum diisi', 'Capaian indikator "'+name+'" belum diisi untuk '+perLbl+'.', [], [anA('Lengkapi input capaian "'+name+'" pada menu Input PMP','PJ Mutu / kepala unit',5,'Data terisi dan tersimpan')]);
+  const p = pct(num, den);
+  let level = p>=target ? 'ok' : (p>=target*0.85 ? 'mid' : 'high');
+  let text = 'Capaian '+fmtPct(p)+' ('+num+' dari '+den+') '+(p>=target?'telah mencapai':'belum mencapai')+' target '+target+'%'+(p<target?' — selisih '+anSel(target-p)+' poin':'')+'.';
+  if(prev){ const dd = p-prev.p; text += ' Dibanding '+prevLabel+' ('+fmtPct(prev.p)+') '+(Math.abs(dd)<1?'relatif tetap':(dd>0?'naik ':'turun ')+anSel(dd)+' poin')+'.'; }
+  const chronic = p<target && chronicPrevs && chronicPrevs.length>=2 && chronicPrevs.every(x=>x<target);
+  if(chronic){ text += ' Capaian di bawah target pada beberapa periode berturut-turut — indikasi masalah sistemik.'; level = 'high'; }
+  let rtl;
+  if(p>=target){
+    rtl = [anA('Pertahankan pelaksanaan yang sudah baik dan dokumentasikan praktik baiknya','Kepala unit / PJ Mutu',30,'Capaian tetap ≥ target')];
+    if(chronicPrevs && chronicPrevs.length>=2 && chronicPrevs.every(x=>x>=target)) { text += ' Target telah tercapai beberapa periode berturut-turut.'; rtl.push(anA('Pertimbangkan menaikkan target atau mengganti indikator dengan isu mutu lain yang lebih prioritas','PJ Mutu + kepala unit',30,'Keputusan penyesuaian target/indikator')); }
+  } else {
+    rtl = PMP_RTL_BASE.filter(a=>a[4]==='mid' || level==='high').map(a=>anA(a[0],a[1],a[2],a[3]));
+    if(annual) rtl.push(anA('Evaluasi capaian tahunan pada rapat tinjauan manajemen dan jadikan dasar penyusunan prioritas mutu tahun berikutnya','Kepala Puskesmas/Klinik + Tim Mutu',60,'Prioritas mutu tahun berikutnya ditetapkan'));
+  }
+  return anF(modul, level, name+': '+fmtPct(p)+' (target '+target+'%)', text, p<target ? ['Periksa definisi operasional dan cara pengumpulan data','Periksa kepatuhan terhadap SOP di unit terkait','Periksa ketersediaan sarana dan SDM','Periksa alur pelayanan dan beban kerja','Periksa apakah umpan balik hasil capaian sudah disampaikan ke petugas'] : [], rtl);
+}
+function analyzePmp(d){
+  const out = [], items = (d.pmp.items||[]).filter(it=>it.active!==false);
+  const period = d.period, year = String(period).split('-')[0];
+  const unitItems = items.filter(it=>(it.level||'unit')==='unit'), fasItems = items.filter(it=>it.level==='fasyankes');
+  if(unitItems.length===0){
+    out.push(anF('PMP Unit','info','Mutu Prioritas Unit belum didefinisikan','Belum ada indikator Mutu Prioritas Unit yang ditetapkan.',[],[anA('Tetapkan minimal satu indikator mutu prioritas untuk tiap unit berdasarkan masalah mutu terbesar di unit tersebut (menu Input PMP > Kelola Indikator Lokal)','PJ Mutu + kepala unit',30,'Indikator mutu prioritas unit terdaftar')]));
+  } else {
+    const cur = d.pmp.unitCur;
+    unitItems.forEach(it=>{
+      const nm = (it.unitName?'['+it.unitName+'] ':'')+it.name;
+      const curV = cur && cur.values && cur.values[it.id];
+      const prevs = (d.pmp.unitPrev||[]).map(x=>{ const v = x.data && x.data.values && x.data.values[it.id]; return v && Number(v.den)>0 ? {period:x.period, p:pct(v.num,v.den)} : null; }).filter(Boolean);
+      const tg = it.target!=null ? Number(it.target) : 100;
+      out.push(anGenericIndicator('PMP Unit', nm, tg, curV, prevs[0], prevs[0]?periodLabel(prevs[0].period):'', periodLabel(period), prevs.slice(0,2).map(x=>x.p), false));
+    });
+  }
+  if(fasItems.length===0){
+    out.push(anF('PMP Puskesmas/Klinik','info','Mutu Prioritas Puskesmas/Klinik belum didefinisikan','Belum ada indikator Mutu Prioritas Puskesmas/Klinik untuk tahun '+year+'.',[],[anA('Susun indikator Mutu Prioritas Puskesmas/Klinik tahun '+year+' berdasarkan analisis masalah mutu dan hasil INM (menu Input PMP > tab Tahunan)','Kepala Puskesmas/Klinik + Tim Mutu',30,'Dokumen mutu prioritas tahunan tersusun')]));
+  } else {
+    const cur = d.pmp.fasCur, prevDoc = d.pmp.fasPrev;
+    const tl = timelinessInfo(year, cur && cur.submittedAt, !!cur);
+    fasItems.forEach(it=>{
+      const curV = cur && cur.values && cur.values[it.id];
+      const pv = prevDoc && prevDoc.values && prevDoc.values[it.id];
+      const prev = pv && Number(pv.den)>0 ? {p:pct(pv.num,pv.den)} : null;
+      const tg = it.target!=null ? Number(it.target) : 100;
+      if(!(Number(curV&&curV.den)>0)){
+        out.push(anF('PMP Puskesmas/Klinik', tl.code==='missing-late'?'mid':'info', it.name+': capaian tahun '+year+' belum diisi',
+          'Capaian tahunan indikator "'+it.name+'" belum diisi.'+(tl.dl?' Batas pengisian: '+fmtDateID(tl.dl)+'.':''), [],
+          [anA('Isi capaian tahunan "'+it.name+'" pada menu Input PMP tab Tahunan sebelum batas waktu','PJ Mutu',14,'Capaian tahunan terisi')]));
+      } else {
+        out.push(anGenericIndicator('PMP Puskesmas/Klinik', it.name, tg, curV, prev, 'tahun '+(Number(year)-1), 'tahun '+year, [], true));
+      }
+    });
+  }
+  return out;
+}
+
+/* ---------- IKP ---------- */
+function analyzeIkp(d){
+  const w = anWindow(d.period), out = [];
+  const inc = (d.rec.ikp||[]).filter(x=>x.tanggal && x.tanggal>=w.start && x.tanggal<=w.end);
+  const rng = periodLabel(w.startPeriod)+' – '+periodLabel(w.endPeriod);
+  if(inc.length===0){
+    out.push(anF('IKP','info','Tidak ada insiden dilaporkan ('+rng+')','Tidak ada laporan insiden keselamatan pasien pada '+rng+'. Ini tidak selalu berarti tidak ada kejadian — sering kali budaya pelaporan belum berjalan.',[],
+      [anA('Sosialisasikan budaya pelaporan insiden tanpa menyalahkan (blame-free) dan mudahkan akses formulir pelaporan','PJ Mutu',14,'Petugas memahami alur dan berani melapor'),
+       anA('Lakukan identifikasi proaktif (telusur/walk-through) untuk menemukan kejadian nyaris cedera yang belum dilaporkan','Tim Mutu',30,'Laporan KNC/KPC meningkat')]));
+    return out;
+  }
+  const code = x=>String(x.jenis||'').split(/\s|—/)[0];
+  const byJenis = {}; inc.forEach(x=>{ const c = code(x)||'-'; byJenis[c] = (byJenis[c]||0)+1; });
+  const byUnit = {}; inc.forEach(x=>{ const u = (x.unit||'-').trim(); byUnit[u] = (byUnit[u]||0)+1; });
+  const high = inc.filter(x=>x.grading==='High'||x.grading==='Extreme');
+  const harm = inc.filter(x=>code(x)==='KTD' || code(x)==='Sentinel');
+  out.push(anF('IKP','info','Ringkasan insiden ('+rng+')','Terdapat '+inc.length+' insiden dilaporkan. Sebaran jenis: '+Object.keys(byJenis).map(k=>k+' '+byJenis[k]).join(', ')+'. Unit terbanyak: '+Object.keys(byUnit).sort((a,b)=>byUnit[b]-byUnit[a]).slice(0,3).map(u=>u+' ('+byUnit[u]+')').join(', ')+'.',[],
+    [anA('Bahas rekap insiden bulanan di lokmin dan catat pembelajaran serta perbaikan yang disepakati','Tim Mutu',30,'Rekap terbahas; pembelajaran terdokumentasi')]));
+  if(high.length){
+    out.push(anF('IKP','high','Insiden grading tinggi/ekstrem: '+high.length+' kejadian','Insiden grading High/Extreme: '+anTop(high,5).map(x=>x.tanggal+' ('+(x.unit||'-')+': '+String(x.deskripsi||'').substring(0,70)+')').join('; ')+'.',[],
+      [anA('Lakukan investigasi/analisis akar masalah (RCA) terhadap insiden grading tinggi/ekstrem bersama tim mutu dan unit terkait; dokumentasikan hasilnya','Tim Mutu + kepala unit',14,'Laporan RCA tersusun; tindakan pencegahan ditetapkan'),
+       anA('Laporkan insiden grading tinggi/ekstrem kepada Kepala Puskesmas/Klinik dan Dinkes sesuai pedoman pelaporan','PJ Mutu',2,'Laporan diterima Kepala dan Dinkes'),
+       anA('Tetapkan dan pantau tindakan pencegahan agar kejadian serupa tidak berulang; evaluasi efektivitasnya di lokmin','Tim Mutu',30,'Tidak ada kejadian serupa pada 3 bulan berikutnya')]));
+  }
+  if(harm.length){
+    out.push(anF('IKP', harm.some(x=>code(x)==='Sentinel')?'high':'mid','Insiden yang mengenai pasien (KTD/Sentinel): '+harm.length+' kejadian','Terdapat '+harm.length+' insiden yang sampai mengenai pasien ('+anTop(harm,5).map(x=>x.tanggal+' '+code(x)+' di '+(x.unit||'-')).join('; ')+').',[],
+      [anA('Pastikan pasien/keluarga mendapat penjelasan yang terbuka dan tindak lanjut pelayanan sesuai pedoman keselamatan pasien','Kepala / dokter penanggung jawab',3,'Penjelasan tercatat'),
+       anA('Telaah sistem (bukan menyalahkan individu) untuk menemukan perbaikan alur/SOP','Tim Mutu',14,'Perbaikan alur/SOP ditetapkan')]));
+  }
+  Object.keys(byUnit).filter(u=>byUnit[u]>=3).forEach(u=>{
+    out.push(anF('IKP','mid','Insiden berulang di unit '+u+' ('+byUnit[u]+' kejadian)','Unit "'+u+'" melaporkan '+byUnit[u]+' insiden pada '+rng+', mengindikasikan pola yang perlu ditelaah.',[],
+      [anA('Telaah pola insiden berulang di unit '+u+' (jenis, waktu, penyebab) dan perbaiki alur/SOP/sarana di unit tersebut','Kepala unit + Tim Mutu',14,'Pola teridentifikasi; perbaikan dilaksanakan')]));
+  });
+  return out;
+}
+
+/* ---------- PPI ---------- */
+function analyzePpi(d){
+  const w = anWindow(d.period), out = [];
+  const chk = (d.rec.checklist||[]).filter(c=>c.period>=w.startPeriod && c.period<=w.endPeriod);
+  const rng = periodLabel(w.startPeriod)+' – '+periodLabel(w.endPeriod);
+  if(chk.length===0){
+    out.push(anF('PPI','info','Daftar tilik PPI belum diisi ('+rng+')','Belum ada daftar tilik PPI pada '+rng+'.',[],[anA('Lakukan penilaian daftar tilik PPI di setiap ruang dan input ke aplikasi','Tim PPI',14,'Daftar tilik seluruh ruang terisi')]));
+  } else {
+    const latest = {}; chk.forEach(c=>{ const k = c.ruang||'-'; if(!latest[k] || c.period>latest[k].period) latest[k] = c; });
+    let allGood = true;
+    Object.keys(latest).forEach(r=>{
+      const c = latest[r];
+      if(c.kategori==='Baik' || c.kategori==='Sangat Baik') return;
+      allGood = false;
+      const level = (c.kategori==='Kurang' || c.kategori==='Sangat Kurang') ? 'high' : 'mid';
+      const fails = Object.keys(c.items||{}).filter(k=>Number(c.items[k])<=2);
+      const byCat = {}; fails.forEach(k=>{ const parts = k.split(' — '); const cat = parts[0], it = parts.slice(1).join(' — '); (byCat[cat] = byCat[cat]||[]).push(it); });
+      const rtl = Object.keys(byCat).map(cat=>{ const h = PPI_CAT_HINT[cat]; return anA((h?h[0]:'Perbaiki kategori '+cat)+' — butir: '+byCat[cat].join('; ')+' (ruang '+r+')', h?h[1]:'Tim PPI', h?h[2]:14, 'Butir terpenuhi; skor kategori naik pada penilaian berikutnya'); });
+      if(!rtl.length) rtl.push(anA('Tinjau hasil penilaian ruang '+r+' dan tetapkan perbaikan pada butir dengan nilai terendah','Tim PPI',14,'Skor ruang naik pada penilaian berikutnya'));
+      out.push(anF('PPI', level, 'Daftar tilik ruang '+r+': '+fmtPct(c.skor)+' ('+c.kategori+')', 'Ruang '+r+' pada '+periodLabel(c.period)+' memperoleh skor '+fmtPct(c.skor)+' dengan kategori '+c.kategori+'.'+(fails.length?' Butir bernilai rendah: '+fails.map(k=>k.replace(' — ',': ')).join('; ')+'.':''), [], rtl));
+    });
+    if(allGood) out.push(anF('PPI','ok','Daftar tilik PPI baik','Seluruh ruang yang dinilai pada '+rng+' berkategori Baik/Sangat Baik.',[],[anA('Pertahankan penilaian berkala dan libatkan petugas dalam perbaikan berkelanjutan','Tim PPI',30,'Kategori tetap Baik/Sangat Baik')]));
+  }
+  const aud = (d.rec.ppiAudit||[]).filter(a=>a.tanggal>=w.start && a.tanggal<=w.end);
+  if(aud.length===0){
+    out.push(anF('PPI','info','Audit kualitas PPI belum dilakukan ('+rng+')','Belum ada audit kualitas PPI pada '+rng+'.',[],[anA('Lakukan audit kualitas PPI (praktik infus/tindakan invasif) di ruang terkait dan input hasilnya','Tim PPI',30,'Audit terlaksana dan terinput')]));
+  } else {
+    const q = {};
+    aud.forEach(a=>(a.answers||[]).forEach(x=>{ if(x.jawaban==='T'||x.jawaban==='K'){ const k = x.pertanyaan; q[k] = q[k]||{t:0,k:0,alasan:[]}; if(x.jawaban==='T') q[k].t++; else q[k].k++; if(x.alasan && q[k].alasan.indexOf(x.alasan)<0) q[k].alasan.push(x.alasan); } }));
+    const keys = Object.keys(q).sort((a,b)=>(q[b].t*2+q[b].k)-(q[a].t*2+q[a].k));
+    if(keys.length===0){
+      out.push(anF('PPI','ok','Audit kualitas PPI sesuai','Seluruh audit pada '+rng+' menjawab "Ya" untuk semua pertanyaan.',[],[anA('Pertahankan praktik dan lakukan audit berkala','Tim PPI',30,'Hasil audit tetap sesuai')]));
+    } else {
+      const level = keys.some(k=>q[k].t>=2) ? 'high' : 'mid';
+      out.push(anF('PPI', level, 'Audit kualitas PPI: '+keys.length+' praktik belum sesuai', 'Praktik dengan jawaban "Tidak/Kadang-kadang": '+anTop(keys,5).map(k=>'"'+k+'" (Tidak '+q[k].t+', Kadang '+q[k].k+')').join('; ')+'.', [],
+        anTop(keys,6).map(k=>anA('Tindak lanjuti praktik: "'+k+'" (Tidak '+q[k].t+'×, Kadang-kadang '+q[k].k+'×'+(q[k].alasan.length?'; alasan tercatat: '+q[k].alasan.join(', '):'')+')','Kepala ruang / Tim PPI',14,'Praktik dilakukan konsisten pada audit berikutnya'))));
+    }
+  }
+  const paj = (d.rec.pajanan||[]).filter(x=>x.tanggalLaporan>=w.start && x.tanggalLaporan<=w.end);
+  if(paj.length){
+    const noHep = paj.filter(x=>x.imunisasiHepB==='Belum'), noApd = paj.filter(x=>x.alatPelindung==='Tidak'), noP3k = paj.filter(x=>x.pertolonganPertama==='Tidak'), noMon = paj.filter(x=>!String(x.pemantauanPajanan||'').trim());
+    const level = (noHep.length||noApd.length||noP3k.length||noMon.length) ? 'high' : 'mid';
+    const rtl = [];
+    if(noHep.length) rtl.push(anA('Lengkapi imunisasi Hepatitis B bagi petugas yang belum mendapatkannya','Kepala Puskesmas/Klinik + Tim PPI',30,'Seluruh petugas berisiko terimunisasi'));
+    rtl.push(anA('Tinjau setiap kejadian pajanan (kronologi, alat, penggunaan APD) dan perbaiki praktik/alat (mis. safety box, alat tajam dengan pengaman)','Tim PPI',14,'Perbaikan praktik/alat ditetapkan'));
+    if(noMon.length) rtl.push(anA('Pastikan pemantauan pasca-pajanan terdokumentasi dan petugas terpajan mendapat tindak lanjut sesuai protokol/SOP pajanan','Tim PPI / dokter',7,'Seluruh kasus pajanan memiliki catatan pemantauan'));
+    rtl.push(anA('Sosialisasi ulang alur pelaporan dan penanganan pertama pajanan kepada seluruh petugas','Tim PPI',14,'Petugas memahami alur; laporan tepat waktu'));
+    out.push(anF('PPI', level, 'Laporan pajanan: '+paj.length+' kejadian ('+rng+')', 'Terdapat '+paj.length+' laporan pajanan pada '+rng+'.'+(noHep.length?' '+noHep.length+' belum imunisasi Hepatitis B.':'')+(noApd.length?' '+noApd.length+' tidak memakai alat pelindung.':'')+(noP3k.length?' '+noP3k.length+' tanpa pertolongan pertama.':'')+(noMon.length?' '+noMon.length+' belum memiliki catatan pemantauan pajanan.':''), [], rtl));
+  }
+  return out;
+}
+
+/* ---------- Audit Internal ---------- */
+function analyzeAudit(d){
+  const w = anWindow(d.period), out = [], today = new Date().toISOString().slice(0,10), year = String(d.period).split('-')[0];
+  const f1 = (d.rec.auditForm1||[]).filter(x=>x.tanggal>=w.start && x.tanggal<=w.end && (x.kategori==='Kurang'||x.kategori==='Cukup'));
+  f1.sort((a,b)=>(b.persentase||0)-(a.persentase||0));
+  if(f1.length){
+    out.push(anF('Audit Internal', f1.some(x=>x.kategori==='Kurang')?'high':'mid', 'Hasil audit indikator: '+f1.length+' indikator perlu perbaikan', 'Indikator dengan ketidaksesuaian tinggi: '+anTop(f1,5).map(x=>'"'+x.indikator+'" ('+x.persentase+'% — '+x.kategori+')').join('; ')+'.', [],
+      anTop(f1,5).map(x=>anA('Tinjau proses terkait "'+x.indikator+'" (ketidaksesuaian '+x.persentase+'%), tetapkan tindakan koreksi dan batas waktu','Auditee / kepala unit',14,'Audit ulang menunjukkan ketidaksesuaian menurun'))));
+  }
+  const open = (d.rec.temuan||[]).filter(x=>x.status==='Belum Selesai');
+  const overdue = open.filter(x=>x.batasWaktu && x.batasWaktu<today);
+  if(overdue.length){
+    out.push(anF('Audit Internal','high','Temuan audit melewati batas waktu: '+overdue.length,'Temuan yang belum selesai dan telah melewati batas waktu: '+anTop(overdue,5).map(x=>'"'+String(x.temuan||'').substring(0,60)+'" (batas '+x.batasWaktu+')').join('; ')+'.',[],
+      [anA('Selesaikan atau jadwalkan ulang temuan yang melewati batas waktu; catat alasan keterlambatan dan rencana tindak lanjut','Auditee + PJ Mutu',7,'Temuan selesai atau memiliki jadwal baru yang disepakati')]));
+  }
+  const rest = open.filter(x=>overdue.indexOf(x)<0);
+  if(rest.length){
+    const noKoreksi = rest.filter(x=>!String(x.tindakanKoreksi||'').trim());
+    const rtl = [anA('Pastikan tindakan koreksi/pencegahan, penanggung jawab, dan tenggat jelas untuk setiap temuan; verifikasi efektivitas setelah selesai','PJ Mutu + auditee',14,'Semua temuan memiliki rencana dan tenggat')];
+    if(noKoreksi.length) rtl.unshift(anA('Isi tindakan koreksi pada temuan: '+anTop(noKoreksi,4).map(x=>'"'+String(x.temuan||'').substring(0,50)+'"').join('; '),'Auditee',7,'Tindakan koreksi terisi'));
+    out.push(anF('Audit Internal','mid','Temuan audit belum selesai: '+rest.length,'Terdapat '+rest.length+' temuan yang belum selesai (belum melewati batas waktu).'+(noKoreksi.length?' '+noKoreksi.length+' di antaranya belum memiliki tindakan koreksi.':''),[],rtl));
+  }
+  if(!d.jadwal){
+    out.push(anF('Audit Internal','info','Jadwal audit internal '+year+' belum disusun','Jadwal audit internal tahun '+year+' belum tersedia di aplikasi.',[],[anA('Susun jadwal audit internal tahun '+year+' per klaster dan tetapkan tim audit','PJ Mutu / Tim Audit',30,'Jadwal dan tim audit tersimpan')]));
+  }
+  if(!out.length && ((d.rec.temuan||[]).length || (d.rec.auditForm1||[]).length)) out.push(anF('Audit Internal','ok','Audit internal terkendali','Tidak ada temuan terbuka yang melewati batas waktu dan tidak ada indikator audit berkategori Kurang/Cukup pada periode ini.',[],[anA('Pertahankan pelaksanaan audit sesuai jadwal dan verifikasi efektivitas tindakan koreksi','PJ Mutu',30,'Audit sesuai jadwal')]));
+  return out;
+}
+
+/* ---------- Manajemen Risiko ---------- */
+function analyzeRisk(d){
+  const out = [], reg = d.rec.riskReg||[], prof = d.rec.riskProfil||[], pem = d.rec.riskPem||[];
+  if(reg.length===0){
+    out.push(anF('Manajemen Risiko','info','Register risiko belum disusun','Belum ada risiko yang tercatat pada register.',[],[anA('Identifikasi dan catat risiko utama (klinis dan non-klinis) pada Register Risiko','PJ Mutu + Tim Mutu',30,'Register risiko tersusun')]));
+    return out;
+  }
+  const high = reg.filter(r=>r.tingkat==='Tinggi'||r.tingkat==='Sangat Tinggi');
+  const noProf = high.filter(r=>!prof.some(p=>p.kodeRisiko===r.kodeRisiko));
+  if(noProf.length) out.push(anF('Manajemen Risiko','high','Risiko tinggi tanpa rencana penanganan: '+noProf.length,'Risiko tingkat Tinggi/Sangat Tinggi yang belum memiliki Profil Risiko: '+anTop(noProf,5).map(r=>r.kodeRisiko+' ('+String(r.risiko||'').substring(0,50)+')').join('; ')+'.',[],
+    anTop(noProf,5).map(r=>anA('Susun Profil Risiko dan rencana penanganan (opsi, biaya, waktu, target residual) untuk risiko '+r.kodeRisiko,'Penanggung jawab risiko + PJ Mutu',14,'Profil risiko tersimpan'))));
+  const perlu = reg.filter(r=>r.perluPenanganan==='Ya' && (r.tingkat==='Rendah'||r.tingkat==='Sedang') && !prof.some(p=>p.kodeRisiko===r.kodeRisiko));
+  if(perlu.length) out.push(anF('Manajemen Risiko','mid','Risiko ditandai perlu penanganan tanpa rencana: '+perlu.length,'Risiko yang ditandai "perlu penanganan" tetapi belum memiliki Profil Risiko: '+anTop(perlu,5).map(r=>r.kodeRisiko).join(', ')+'.',[],
+    [anA('Lengkapi Profil Risiko untuk risiko yang ditandai perlu penanganan','PJ Mutu',30,'Profil risiko tersimpan')]));
+  const noPem = prof.filter(p=>!pem.some(x=>x.kodeRisiko===p.kodeRisiko));
+  if(noPem.length) out.push(anF('Manajemen Risiko','mid','Rencana penanganan belum dipantau: '+noPem.length,'Profil risiko tanpa catatan pemantauan: '+anTop(noPem,5).map(p=>p.kodeRisiko).join(', ')+'.',[],
+    [anA('Catat pemantauan dan peninjauan penanganan risiko (realisasi, hambatan, risiko residual)','PJ Mutu + penanggung jawab risiko',30,'Pemantauan tercatat')]));
+  const latest = {}; pem.forEach(x=>{ const t = tsToDate(x.createdAt); const k = x.kodeRisiko; if(!latest[k] || (t && tsToDate(latest[k].createdAt) && t>tsToDate(latest[k].createdAt))) latest[k] = x; });
+  const worse = Object.keys(latest).map(k=>latest[k]).filter(x=>x.residualTingkat==='Tinggi'||x.residualTingkat==='Sangat Tinggi'||x.trendRisiko==='Naik');
+  if(worse.length) out.push(anF('Manajemen Risiko','high','Risiko residual masih tinggi/meningkat: '+worse.length,'Risiko dengan residual Tinggi/Sangat Tinggi atau tren naik: '+anTop(worse,5).map(x=>x.kodeRisiko+' ('+(x.residualTingkat||'-')+', tren '+(x.trendRisiko||'-')+')').join('; ')+'.',[],
+    anTop(worse,4).map(x=>anA('Evaluasi efektivitas penanganan risiko '+x.kodeRisiko+'; pertimbangkan opsi penanganan lain atau eskalasi ke pimpinan','PJ Mutu + Kepala',14,'Keputusan penanganan lanjutan tercatat'))));
+  if(!out.length) out.push(anF('Manajemen Risiko','ok','Pengelolaan risiko terkendali','Risiko tinggi telah memiliki rencana penanganan dan tidak ditemukan risiko residual yang meningkat.',[],[anA('Tinjau register risiko secara berkala dan perbarui bila ada perubahan kondisi','PJ Mutu',60,'Register diperbarui')]));
+  return out;
+}
+
+/* ---------- MFK & K3 ---------- */
+function analyzeMfk(d){
+  const out = [], w = anWindow(d.period), year = String(d.period).split('-')[0];
+  const reg = d.rec.mfk||[];
+  const st = reg.filter(r=>r.tingkat==='Sangat Tinggi');
+  if(st.length){
+    const blank = st.filter(r=>!String(r.pencegahan||'').trim() || !String(r.upayaPenanganan||'').trim());
+    out.push(anF('MFK & K3', blank.length?'high':'mid','Risiko fasilitas Sangat Tinggi: '+st.length,'Risiko MFK tingkat Sangat Tinggi: '+anTop(st,5).map(r=>(r.unitKerja||'-')+': '+String(r.risiko||'').substring(0,50)).join('; ')+'.'+(blank.length?' '+blank.length+' belum memiliki pencegahan/upaya penanganan lengkap.':''),[],
+      anTop(st,5).map(r=>anA((blank.indexOf(r)>=0?'Tetapkan/lengkapi pencegahan dan upaya penanganan':'Tinjau efektivitas pengendalian')+' risiko "'+String(r.risiko||'').substring(0,50)+'" (unit '+(r.unitKerja||'-')+') dan tunjuk penanggung jawab','Penanggung jawab MFK + Kepala',14,'Pengendalian ditetapkan/ditinjau'))));
+  }
+  if((d.rec.k3pem||[]).length===0) out.push(anF('MFK & K3','info','Pemetaan risiko K3 belum dilakukan','Belum ada pemetaan risiko K3 (fisik, kimia, biologi, ergonomi, psikososial).',[],[anA('Lakukan pemetaan risiko K3 per ruang pelayanan dan input ke aplikasi','Tim K3',30,'Pemetaan seluruh ruang tersimpan')]));
+  if((d.rec.k3rn||[]).length===0) out.push(anF('MFK & K3','info','Perencanaan K3 belum disusun','Belum ada rencana kegiatan K3.',[],[anA('Susun rencana kegiatan K3 tahun '+year+' (kegiatan, target, anggaran, indikator)','Tim K3',30,'Rencana K3 tersimpan')]));
+  const b3 = (d.rec.b3||[]).filter(x=>x.bulan>=w.startPeriod && x.bulan<=w.endPeriod);
+  if(b3.length===0) out.push(anF('MFK & K3','info','Inventaris B3 belum diisi ('+periodLabel(w.startPeriod)+' – '+periodLabel(w.endPeriod)+')','Belum ada inventaris bahan berbahaya dan beracun (B3) pada periode ini.',[],[anA('Lengkapi inventaris B3 bulan '+periodLabel(d.period),'Petugas B3 / farmasi / lab',7,'Inventaris B3 terisi')]));
+  else {
+    const bad = b3.filter(x=>x.msds==='Tidak' || x.label==='Tidak');
+    if(bad.length){
+      const uniq = {}; bad.forEach(x=>{ uniq[(x.namaBahan||'-')+'|'+(x.ruangan||'-')] = x; });
+      const list = Object.keys(uniq).map(k=>uniq[k]);
+      out.push(anF('MFK & K3','high','Bahan B3 tanpa MSDS/label: '+list.length,'Bahan B3 tanpa MSDS atau label: '+anTop(list,6).map(x=>(x.namaBahan||'-')+' ('+(x.ruangan||'-')+')').join('; ')+'.',[],
+        anTop(list,6).map(x=>anA('Lengkapi MSDS dan label untuk bahan "'+(x.namaBahan||'-')+'" di '+(x.ruangan||'-'),'Petugas B3 / farmasi / lab',7,'MSDS dan label lengkap'))));
+    } else out.push(anF('MFK & K3','ok','Inventaris B3 lengkap','Seluruh bahan B3 pada periode ini memiliki MSDS dan label.',[],[anA('Pertahankan kelengkapan MSDS/label dan perbarui inventaris tiap bulan','Petugas B3',30,'Inventaris selalu diperbarui')]));
+  }
+  return out;
+}
+
+/* ---------- Kepatuhan pelaporan ---------- */
+function analyzeKepatuhan(d){
+  const out = [], cur = d.inm.cur;
+  const t = timelinessInfo(d.period, cur && cur.submittedAt, !!cur);
+  const act = anA('Terapkan pengingat internal (mis. 3 hari sebelum batas) dan tunjuk PJ cadangan agar laporan selalu tepat waktu','PJ Mutu + Kepala',7,'Laporan berikutnya tepat waktu');
+  if(t.code==='late') out.push(anF('Kepatuhan Pelaporan','mid','Laporan INM '+periodLabel(d.period)+' terlambat','Laporan INM pertama kali dikirim '+fmtDateID(t.sub)+', setelah batas waktu '+fmtDateID(t.dl)+'.',[],[act]));
+  else if(t.code==='missing-late') out.push(anF('Kepatuhan Pelaporan','high','Laporan INM '+periodLabel(d.period)+' belum dikirim (lewat batas)','Laporan INM belum dikirim dan batas waktu '+fmtDateID(t.dl)+' sudah lewat.',[],[anA('Segera kirim laporan INM periode ini','PJ Mutu',2,'Laporan terkirim'), act]));
+  return out;
+}
+
+/* ---------- Penyusun analisis ---------- */
+function buildKesimpulan(d, findings, stats){
+  const paras = [], pl = periodLabel(d.period);
+  if(stats.filled===0) paras.push('Data INM '+pl+' belum diisi sehingga capaian mutu belum dapat dinilai. Segera lengkapi input INM agar analisis dapat disusun.');
+  else {
+    const bl = stats.below.slice().sort((a,b)=>b.gap-a.gap).map(x=>x.short+' '+fmtPct(x.p)+' (target '+x.t+'%)');
+    paras.push('Pada '+pl+', '+stats.achieved+' dari '+stats.filled+' indikator INM yang terisi telah mencapai target'+(bl.length?'; '+bl.length+' belum mencapai target, yaitu '+bl.join('; '):'; seluruh indikator terisi memenuhi target')+'.');
+  }
+  const others = findings.filter(f=>f.modul!=='INM' && f.level==='high');
+  const cnt = {}; others.forEach(f=>{ cnt[f.modul] = (cnt[f.modul]||0)+1; });
+  paras.push(others.length ? 'Di luar INM, terdapat '+others.length+' hal berprioritas tinggi pada: '+Object.keys(cnt).map(m=>m+' ('+cnt[m]+')').join(', ')+'.' : 'Di luar INM, tidak ditemukan hal berprioritas tinggi berdasarkan data yang diinput.');
+  const top = findings.filter(f=>f.level==='high').concat(findings.filter(f=>f.level==='mid')).slice(0,3);
+  if(top.length) paras.push('Prioritas utama tindak lanjut: '+top.map((f,i)=>(i+1)+') '+f.judul).join('; ')+'.');
+  paras.push('Panduan: laksanakan tindak lanjut bertahap dengan siklus PDCA — mulai dari usulan berprioritas tinggi dan berjangka pendek, tetapkan penanggung jawab dan tenggat, bahas progres pada lokmin bulanan, lalu evaluasi capaian pada periode berikutnya.');
+  return paras;
+}
+function buildAnalysis(d){
+  const inm = analyzeInm(d);
+  const findings = [].concat(inm.findings, analyzePmp(d), analyzeIkp(d), analyzePpi(d), analyzeAudit(d), analyzeRisk(d), analyzeMfk(d), analyzeKepatuhan(d));
+  findings.sort((a,b)=> (AN_LEVEL[a.level].order-AN_LEVEL[b.level].order) || (AN_MODUL_ORDER.indexOf(a.modul)-AN_MODUL_ORDER.indexOf(b.modul)));
+  const counts = {high:0, mid:0, info:0, ok:0}; findings.forEach(f=>{ counts[f.level]++; });
+  const rtl = []; const seen = {};
+  findings.forEach(f=>{
+    if(f.level==='ok' || f.level==='info' && !f.rtl.length) return;
+    f.rtl.forEach(a=>{ const key = f.modul+'|'+a.k; if(seen[key]) return; seen[key] = 1; rtl.push({level:f.level, modul:f.modul, temuan:f.judul, k:a.k, pj:a.pj, hari:a.hari, ukuran:a.ukuran}); });
+  });
+  rtl.sort((a,b)=> (AN_LEVEL[a.level].order-AN_LEVEL[b.level].order) || (a.hari-b.hari));
+  return {findings, counts, rtl, kesimpulan:buildKesimpulan(d, findings, inm.stats), stats:inm.stats};
+}
+
+/* ---------- Analisis tingkat kabupaten (INM) untuk Dinkes ---------- */
+function analyzeKabupatenInm(rows){
+  return INM.map(ind=>{
+    const t = getTarget(ind.id);
+    const vals = rows.filter(r=>r.values[ind.id]!==null && r.values[ind.id]!==undefined).map(r=>({name:r.name, p:r.values[ind.id]}));
+    const n = vals.length, avg = n ? vals.reduce((a,b)=>a+b.p,0)/n : null;
+    const below = vals.filter(v=>v.p<t).sort((a,b)=>a.p-b.p);
+    const missing = rows.filter(r=>r.values[ind.id]===null || r.values[ind.id]===undefined).map(r=>r.name);
+    const level = n===0 ? 'info' : (below.length===0 ? 'ok' : ((below.length/n>=0.5 || avg<t*0.85) ? 'high' : 'mid'));
+    const teks = n===0 ? 'Belum ada fasilitas yang melaporkan.' : (n-below.length)+' dari '+n+' fasilitas pelapor mencapai target ('+t+'%); rata-rata '+fmtPct(avg)+'.'+(missing.length?' '+missing.length+' fasilitas belum melapor.':'');
+    const rtl = (level==='ok' || n===0) ? 'Pertahankan; apresiasi dan bagikan praktik baik fasilitas berkinerja tinggi' : INM_KB[ind.id].dinkes+(below.length?': '+anTop(below,5).map(b=>b.name).join(', '):'');
+    return {ind, target:t, n, avg, below, missing, level, teks, rtl};
+  });
+}
+function anKabupatenHtml(rows){
+  const body = rows.map(r=>`<tr>
+    <td style="font-weight:600; white-space:normal; min-width:170px;">${esc(r.ind.name)}</td>
+    <td>${r.avg===null?'—':fmtPct(r.avg)}<div style="font-size:11px; color:var(--ink-soft);">target ${r.target}%</div></td>
+    <td>${r.n?(r.n-r.below.length)+' / '+r.n:'—'}</td>
+    <td style="white-space:normal; min-width:200px;">${r.below.length?anTop(r.below,5).map(b=>esc(b.name)+' ('+fmtPct(b.p)+')').join(', '):'—'}${r.missing.length?`<div style="font-size:11px; color:var(--ink-soft); margin-top:3px;">Belum lapor: ${r.missing.length} fasilitas</div>`:''}</td>
+    <td><span class="pill ${AN_LEVEL[r.level].cls}">${AN_LEVEL[r.level].label}</span></td>
+    <td style="white-space:normal; min-width:240px;">${esc(r.rtl)}</td></tr>`).join('');
+  return `<div class="card scrollx" style="padding:4px;" id="analisis-kab"><table>
+    <thead><tr><th>Indikator</th><th>Rata-rata</th><th>Fasilitas Mencapai Target</th><th>Fasilitas Prioritas (terendah)</th><th>Status</th><th>Tindak Lanjut Dinkes (usulan)</th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
+}
+
+/* ---------- Pemuatan data & tampilan ---------- */
+async function loadAnalysisData(facilityId, period){
+  const year = period.split('-')[0], prevs = anPrevPeriods(period, 3);
+  const fdoc = (coll, id)=>db.collection(coll).doc(id).get().then(s=>s.exists?s.data():null);
+  const colls = {ikp:'ikp_reports', pajanan:'ppi_pajanan', checklist:'ppi_checklist', ppiAudit:'ppi_audit', auditForm1:'audit_form1', temuan:'audit_temuan',
+    riskReg:'risk_register', riskProfil:'risk_profil', riskPem:'risk_pemantauan', mfk:'mfk_register', k3pem:'k3_pemetaan', k3rn:'k3_perencanaan', b3:'k3_b3'};
+  const keys = Object.keys(colls);
+  const [inmCur, inmPrev, unitCur, unitPrev, fasCur, fasPrev, jadwal, itemsSnap, recs] = await Promise.all([
+    fdoc('inm_reports', facilityId+'_'+period),
+    Promise.all(prevs.map(p=>fdoc('inm_reports', facilityId+'_'+p).then(x=>({period:p, data:x})))),
+    fdoc('pmp_reports', facilityId+'_'+period),
+    Promise.all(prevs.map(p=>fdoc('pmp_reports', facilityId+'_'+p).then(x=>({period:p, data:x})))),
+    fdoc('pmp_reports', facilityId+'_'+year),
+    fdoc('pmp_reports', facilityId+'_'+(Number(year)-1)),
+    fdoc('audit_jadwal', facilityId+'_'+year),
+    db.collection('pmp_indicators').doc(facilityId).collection('items').get(),
+    Promise.all(keys.map(k=>db.collection(colls[k]).where('facilityId','==',facilityId).get()))
+  ]);
+  const rec = {}; keys.forEach((k,i)=>{ rec[k] = recs[i].docs.map(x=>({id:x.id, ...x.data()})); });
+  return {period, year, facility:STATE.facilities.find(f=>f.id===facilityId)||null,
+    inm:{cur:inmCur, prev:inmPrev}, pmp:{items:itemsSnap.docs.map(x=>({id:x.id, ...x.data()})), unitCur, unitPrev, fasCur, fasPrev}, rec, jadwal};
+}
+function hariText(h){ return '≤ '+h+' hari (s.d. '+fmtDateID(anAddDays(h))+')'; }
+function renderAnalysisHtml(res, d){
+  const lvBadge = l=>`<span class="pill ${AN_LEVEL[l].cls}">${AN_LEVEL[l].label}</span>`;
+  const rtlRows = res.rtl.map((r,i)=>`<tr>
+    <td>${i+1}</td><td>${lvBadge(r.level)}</td><td>${esc(r.modul)}</td>
+    <td style="white-space:normal; min-width:150px;">${esc(r.temuan)}</td>
+    <td style="white-space:normal; min-width:260px;">${esc(r.k)}</td>
+    <td style="white-space:normal; min-width:120px;">${esc(r.pj)}</td>
+    <td style="white-space:normal; min-width:130px;">${esc(hariText(r.hari))}</td>
+    <td style="white-space:normal; min-width:170px;">${esc(r.ukuran)}</td>
+    <td style="white-space:nowrap;">☐ Belum ☐ Proses ☐ Selesai</td></tr>`).join('');
+  const byModul = {}; res.findings.forEach(f=>{ (byModul[f.modul] = byModul[f.modul]||[]).push(f); });
+  const detail = AN_MODUL_ORDER.filter(m=>byModul[m]).map(m=>`
+    <div class="card" style="padding:16px; margin-bottom:14px;">
+      <h3 class="serif" style="margin:0 0 10px; font-size:16px;">${esc(m)}</h3>
+      ${byModul[m].map(f=>`<div style="border-top:1px solid var(--line-soft); padding:10px 0;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:4px;">${lvBadge(f.level)}<strong style="font-size:13.5px;">${esc(f.judul)}</strong></div>
+        <div style="font-size:13px; color:var(--ink-soft); margin-bottom:6px;">${esc(f.analisis)}</div>
+        ${f.penyebab.length?`<details style="margin-bottom:6px;"><summary style="cursor:pointer; font-size:12.5px; font-weight:600;">Kemungkinan penyebab yang perlu dicek</summary><ul style="margin:6px 0 0 18px; font-size:12.5px; color:var(--ink-soft);">${f.penyebab.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:''}
+        ${f.rtl.length?`<div style="font-size:12.5px; font-weight:600; margin-bottom:2px;">Usulan tindak lanjut:</div><ul style="margin:0 0 0 18px; font-size:12.5px;">${f.rtl.map(a=>`<li>${esc(a.k)} <span style="color:var(--ink-soft);">— ${esc(a.pj)}, ${esc(hariText(a.hari))}</span></li>`).join('')}</ul>`:''}
+      </div>`).join('')}
+    </div>`).join('');
+  const facLbl = d && d.facility ? facilityFolderLabel(d.facility.id) : '';
+  return `
+    <div id="analisis-print" class="card" style="padding:18px; margin-bottom:18px;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+        <span class="pill pill-bad">Prioritas tinggi: ${res.counts.high}</span><span class="pill pill-warn">Perlu perhatian: ${res.counts.mid}</span>
+        <span class="pill pill-warn">Catatan: ${res.counts.info}</span><span class="pill pill-ok">Baik: ${res.counts.ok}</span>
+      </div>
+      <h3 class="serif" style="margin:0 0 8px; font-size:16px;">Kesimpulan</h3>
+      ${res.kesimpulan.map(p=>`<p style="font-size:13.5px; line-height:1.6; margin:0 0 8px;">${esc(p)}</p>`).join('')}
+      <h3 class="serif" style="margin:16px 0 8px; font-size:16px;">Rencana Tindak Lanjut (usulan)</h3>
+      ${res.rtl.length ? `<div class="scrollx"><table>
+        <thead><tr><th>No</th><th>Prioritas</th><th>Modul</th><th>Temuan</th><th>Kegiatan Tindak Lanjut</th><th>Penanggung Jawab (usulan)</th><th>Target Waktu (usulan)</th><th>Indikator Keberhasilan</th><th>Status Pelaksanaan</th></tr></thead>
+        <tbody>${rtlRows}</tbody></table></div>` : '<p style="font-size:13px; color:var(--ink-soft);">Tidak ada tindak lanjut mendesak. Pertahankan kinerja dan lengkapi data secara berkala.</p>'}
+      <p style="font-size:11.5px; color:var(--ink-soft); margin:12px 0 0;">Dokumen ini disusun otomatis berdasarkan data yang diinput dan aturan analisis baku; sesuaikan penanggung jawab dan tenggat dengan kondisi ${esc(facLbl||'fasilitas')} setelah dibahas bersama tim.</p>
+    </div>
+    <h3 class="serif" style="margin:0 0 10px; font-size:16px;">Rincian Analisis per Modul</h3>${detail}`;
+}
+async function runAnalysis(facilityId, period, bodyId){
+  const el = document.getElementById(bodyId); if(!el) return;
+  try{
+    const data = await loadAnalysisData(facilityId, period);
+    const res = buildAnalysis(data);
+    const el2 = document.getElementById(bodyId); if(!el2) return;
+    el2.innerHTML = renderAnalysisHtml(res, data);
+  }catch(e){
+    const el2 = document.getElementById(bodyId);
+    if(el2) el2.innerHTML = `<div class="card" style="padding:18px; color:var(--rust);">Gagal menyusun analisis: ${esc(e.message)}</div>`;
+  }
+}
+const AN_NOTE = `<div class="no-print" style="margin-bottom:14px; padding:10px 14px; border-radius:8px; font-size:12.5px; background:var(--paper-raised); border:1px solid var(--line); color:var(--ink-soft);">
+  Analisis dan usulan tindak lanjut ini disusun <strong>otomatis berdasarkan aturan</strong> (bukan kecerdasan buatan) dari data yang sudah diinput, dibandingkan dengan target/kriteria yang berlaku. Gunakan sebagai <strong>panduan awal</strong>; sesuaikan dengan kondisi lapangan dan bahas bersama tim pada lokmin.</div>`;
+function viewFacAnalisis(fac){
+  const facilityId = fac ? fac.id : STATE.profile.facilityId;
+  const content = `<div style="margin-bottom:12px;">${periodPicker()}</div>${AN_NOTE}
+    ${printExportToolbar('Analisis dan Rencana Tindak Lanjut', periodLabel(STATE.period), '#analisis-print', 'RTL_'+STATE.period+'.xlsx', facilityId, periodLabel(STATE.period))}
+    <div id="analisis-body"><div class="spinner"></div></div>`;
+  setTimeout(()=>runAnalysis(facilityId, STATE.period, 'analisis-body'), 30);
+  return ['Analisis & Rencana Tindak Lanjut', fac?fac.name:'', content];
+}
+function viewDinkesAnalisis(){
+  if(!ringkasanData) loadRingkasan();
+  const opts = STATE.facilities.filter(f=>f.active!==false).map(f=>`<option value="${f.id}" ${STATE.selectedFacilityId===f.id?'selected':''}>${esc(f.name)}</option>`).join('');
+  const fid = STATE.selectedFacilityId || (STATE.facilities[0] && STATE.facilities[0].id);
+  if(!STATE.selectedFacilityId && fid) STATE.selectedFacilityId = fid;
+  const kab = ringkasanData ? anKabupatenHtml(analyzeKabupatenInm(ringkasanData)) : '<div class="spinner"></div>';
+  const content = `<div style="margin-bottom:12px;">${periodPicker()}</div>${AN_NOTE}
+    <h3 class="serif" style="margin:0 0 10px; font-size:16px;">Analisis Tingkat Kabupaten — INM ${esc(periodLabel(STATE.period))}</h3>
+    ${kab}
+    ${ringkasanData ? printExportToolbar('Analisis INM Tingkat Kabupaten', periodLabel(STATE.period), '#analisis-kab', 'Analisis_INM_Kabupaten_'+STATE.period+'.xlsx', null, periodLabel(STATE.period)) : ''}
+    <h3 class="serif" style="margin:22px 0 10px; font-size:16px;">Analisis per Fasilitas</h3>
+    <div style="margin-bottom:10px;"><select style="width:auto; min-width:240px;" onchange="STATE.selectedFacilityId=this.value; renderDinkesShell();">${opts}</select></div>
+    ${printExportToolbar('Analisis dan Rencana Tindak Lanjut', periodLabel(STATE.period), '#analisis-print', 'RTL_'+STATE.period+'.xlsx', fid, periodLabel(STATE.period))}
+    <div id="analisis-body"><div class="spinner"></div></div>`;
+  if(fid) setTimeout(()=>runAnalysis(fid, STATE.period, 'analisis-body'), 30);
+  return ['Analisis & Rencana Tindak Lanjut', 'Analisis otomatis tingkat kabupaten dan per fasilitas', content];
 }
 
 </script>
