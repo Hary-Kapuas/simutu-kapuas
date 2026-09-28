@@ -695,7 +695,7 @@ function shellLayout(navHtml, contentHtml, titleText, subText){
         <span style="font-size:22px;">🩺</span>
         <div>
           <div style="font-weight:800; font-size:14.5px; line-height:1.1;">SIMUTU Kapuas</div>
-          <div style="font-size:11px; color:var(--ink-soft);">Dinkes Kab. Kapuas</div>
+          <div style="font-size:11px; color:var(--ink-soft); line-height:1.25; margin-top:2px;">${esc(sidebarOrgLabel())}</div>
         </div>
       </div>
       <div id="sidebar-nav">${navHtml}</div>
@@ -4810,6 +4810,16 @@ async function saveKepalaDinas(){
   }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
 }
 
+
+/* Label instansi di sidebar: Dinkes -> "Dinkes Kab. Kapuas"; akun fasilitas -> nama fasilitasnya */
+function sidebarOrgLabel(){
+  const p = STATE.profile;
+  if(p && p.role!=='dinkes' && p.facilityId){
+    const f = STATE.facilities.find(x=>x.id===p.facilityId);
+    if(f){ const t = facilityTypeLabel(f.type); return (t ? t+' ' : '')+f.name; }
+  }
+  return 'Dinkes Kab. Kapuas';
+}
 </script>
 </body>
 </html>
