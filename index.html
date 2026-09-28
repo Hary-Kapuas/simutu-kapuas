@@ -926,7 +926,7 @@ function viewDinkesINM(){
       <div style="display:flex; gap:8px;">
         <button class="btn btn-secondary" onclick="exportMutufasyankes()">⤓ Format Mutufasyankes (.xlsx)</button>
         <button class="btn btn-secondary" onclick="exportInmXlsx()">⤓ Rekap Lengkap (.xlsx)</button>
-        <button class="btn btn-secondary" onclick="printVisibleSection('Rekap Data INM','${periodLabel(STATE.period)}','#dinkes-inm-table',null,'${periodLabel(STATE.period)}')">🖶 Cetak Laporan</button>
+        ${printDateControl()}<button class="btn btn-secondary" onclick="printVisibleSection('Rekap Data INM','${periodLabel(STATE.period)}','#dinkes-inm-table',null,'${periodLabel(STATE.period)}')">🖶 Cetak Laporan</button>
       </div>
     </div>
     <div class="card scrollx" style="padding:4px;" id="dinkes-inm-table">
@@ -1284,12 +1284,19 @@ function viewAkun(){
       <button class="btn btn-primary" onclick="createFacilityAccount()">Buat Akun</button>
     </div>
     <div class="card" style="padding:18px; margin-bottom:20px; max-width:480px;">
-      <h3 class="serif" style="margin:0 0 6px; font-size:16px;">Kepala Dinas Kesehatan</h3>
+      <h3 class="serif" style="margin:0 0 6px; font-size:16px;">Kepala Dinas &amp; PJ Mutu Dinas Kesehatan</h3>
       <p style="color:var(--ink-soft); font-size:12.5px; margin:0 0 12px;">Dipakai sebagai tanda tangan pada laporan rekap gabungan seluruh fasilitas.</p>
       <label>Nama</label>
       <input id="kd-nama" value="${esc(kd.nama||'')}" style="margin-bottom:12px;">
       <label>NIP</label>
-      <input id="kd-nip" value="${esc(kd.nip||'')}" style="margin-bottom:12px;">
+      <input id="kd-nip" value="${esc(kd.nip||'')}" style="margin-bottom:14px;">
+      <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:2px;">
+        <div style="font-weight:700; font-size:12.5px; color:var(--ink-soft); margin-bottom:8px;">PJ Mutu Dinas Kesehatan (tanda tangan sisi kanan)</div>
+        <label>Nama PJ Mutu Dinkes</label>
+        <input id="kd-pj-nama" value="${esc(kd.pjMutuNama||'')}" style="margin-bottom:12px;">
+        <label>NIP PJ Mutu Dinkes</label>
+        <input id="kd-pj-nip" value="${esc(kd.pjMutuNip||'')}" style="margin-bottom:14px;">
+      </div>
       <label>Alamat Dinas Kesehatan</label>
       <textarea id="kd-alamat" rows="2" style="margin-bottom:14px;">${esc(kd.alamat||'')}</textarea>
       <button class="btn btn-primary" onclick="saveKepalaDinas()">Simpan</button>
@@ -1611,7 +1618,7 @@ async function togglePmpItem(facilityId, itemId, makeActive){
 
 function viewFacIkp(fac){
   const facilityId = fac ? fac.id : STATE.profile.facilityId;
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayISO();
   const content = `
     <div class="card" style="padding:18px; margin-bottom:22px; max-width:640px;">
       <h3 class="serif" style="margin:0 0 14px; font-size:16px;">Lapor Insiden Baru</h3>
@@ -1739,7 +1746,7 @@ function viewFacPPI(fac){
 
 /* -- Laporan Pajanan -- */
 function ppiPajananFormHtml(){
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayISO();
   return `<div class="card" style="padding:18px; max-width:720px;">
     <h3 class="serif" style="margin:0 0 14px; font-size:16px;">Formulir Laporan Pajanan</h3>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
@@ -1901,7 +1908,7 @@ async function loadPpiChecklistList(facilityId){
 
 /* -- Audit Kualitas PPI -- */
 function ppiAuditFormHtml(){
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayISO();
   return `<div class="card" style="padding:18px; max-width:760px;">
     <h3 class="serif" style="margin:0 0 14px; font-size:16px;">Audit Kualitas Pencegahan &amp; Pengendalian Infeksi</h3>
     <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:14px;">
@@ -2169,7 +2176,7 @@ async function loadAuditForm1List(facilityId){
 
 /* -- Temuan & Tindak Lanjut (gabungan Form 2, 3, 4, 5) -- */
 function auditTemuanFormHtml(facilityId){
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayISO();
   return `<div class="card" style="padding:18px; max-width:820px;">
     <h3 class="serif" style="margin:0 0 6px; font-size:16px;">Catat Temuan Baru</h3>
     <p style="color:var(--ink-soft); font-size:12.5px; margin:0 0 14px;">Satu formulir ini mencakup laporan ketidaksesuaian, tindakan koreksi, hingga status penyelesaian — menggantikan Form 2-5 yang semula terpisah.</p>
@@ -3612,7 +3619,7 @@ function viewDinkesINM(){
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn btn-secondary" onclick="exportMutufasyankes()">⤓ Format Mutufasyankes (.xlsx)</button>
         <button class="btn btn-secondary" onclick="exportInmXlsx()">⤓ Rekap Lengkap (.xlsx)</button>
-        <button class="btn btn-secondary" onclick="printVisibleSection('Rekap Data INM','${periodLabel(STATE.period)}','#dinkes-inm-table',null,'${periodLabel(STATE.period)}')">🖶 Cetak Laporan</button>
+        ${printDateControl()}<button class="btn btn-secondary" onclick="printVisibleSection('Rekap Data INM','${periodLabel(STATE.period)}','#dinkes-inm-table',null,'${periodLabel(STATE.period)}')">🖶 Cetak Laporan</button>
       </div>
     </div>
     <div class="card scrollx" style="padding:4px;" id="dinkes-inm-table">
@@ -4467,7 +4474,7 @@ function analyzePpi(d){
 
 /* ---------- Audit Internal ---------- */
 function analyzeAudit(d){
-  const w = anWindow(d.period), out = [], today = new Date().toISOString().slice(0,10), year = String(d.period).split('-')[0];
+  const w = anWindow(d.period), out = [], today = todayISO(), year = String(d.period).split('-')[0];
   const f1 = (d.rec.auditForm1||[]).filter(x=>x.tanggal>=w.start && x.tanggal<=w.end && (x.kategori==='Kurang'||x.kategori==='Cukup'));
   f1.sort((a,b)=>(b.persentase||0)-(a.persentase||0));
   if(f1.length){
@@ -4642,7 +4649,7 @@ function renderAnalysisHtml(res, d){
     <td style="white-space:normal; min-width:150px;">${esc(r.temuan)}</td>
     <td style="white-space:normal; min-width:260px;">${esc(r.k)}</td>
     <td style="white-space:normal; min-width:120px;">${esc(r.pj)}</td>
-    <td style="white-space:normal; min-width:130px;">${esc(hariText(r.hari))}</td>
+    <td style="white-space:normal; min-width:130px;"><span class="rtl-hari" data-h="${r.hari}">${esc(hariText(r.hari))}</span></td>
     <td style="white-space:normal; min-width:170px;">${esc(r.ukuran)}</td>
     <td style="white-space:nowrap;">☐ Belum ☐ Proses ☐ Selesai</td></tr>`).join('');
   const byModul = {}; res.findings.forEach(f=>{ (byModul[f.modul] = byModul[f.modul]||[]).push(f); });
@@ -4653,7 +4660,7 @@ function renderAnalysisHtml(res, d){
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:4px;">${lvBadge(f.level)}<strong style="font-size:13.5px;">${esc(f.judul)}</strong></div>
         <div style="font-size:13px; color:var(--ink-soft); margin-bottom:6px;">${esc(f.analisis)}</div>
         ${f.penyebab.length?`<details style="margin-bottom:6px;"><summary style="cursor:pointer; font-size:12.5px; font-weight:600;">Kemungkinan penyebab yang perlu dicek</summary><ul style="margin:6px 0 0 18px; font-size:12.5px; color:var(--ink-soft);">${f.penyebab.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:''}
-        ${f.rtl.length?`<div style="font-size:12.5px; font-weight:600; margin-bottom:2px;">Usulan tindak lanjut:</div><ul style="margin:0 0 0 18px; font-size:12.5px;">${f.rtl.map(a=>`<li>${esc(a.k)} <span style="color:var(--ink-soft);">— ${esc(a.pj)}, ${esc(hariText(a.hari))}</span></li>`).join('')}</ul>`:''}
+        ${f.rtl.length?`<div style="font-size:12.5px; font-weight:600; margin-bottom:2px;">Usulan tindak lanjut:</div><ul style="margin:0 0 0 18px; font-size:12.5px;">${f.rtl.map(a=>`<li>${esc(a.k)} <span style="color:var(--ink-soft);">— ${esc(a.pj)}, <span class="rtl-hari" data-h="${a.hari}">${esc(hariText(a.hari))}</span></span></li>`).join('')}</ul>`:''}
       </div>`).join('')}
     </div>`).join('');
   const facLbl = d && d.facility ? facilityFolderLabel(d.facility.id) : '';
@@ -4711,6 +4718,96 @@ function viewDinkesAnalisis(){
     <div id="analisis-body"><div class="spinner"></div></div>`;
   if(fid) setTimeout(()=>runAnalysis(fid, STATE.period, 'analisis-body'), 30);
   return ['Analisis & Rencana Tindak Lanjut', 'Analisis otomatis tingkat kabupaten dan per fasilitas', content];
+}
+
+
+/* =====================================================================
+   PEMBARUAN V5 — Tanggal cetak dapat ditentukan pengguna (mis. cetak mundur/backdate)
+   ===================================================================== */
+function todayISO(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function getPrintDate(){ return /^\d{4}-\d{2}-\d{2}$/.test(STATE.printDate||'') ? STATE.printDate : todayISO(); }
+function printDateObj(){ const p = getPrintDate().split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
+function printDateLabel(){ return fmtDateID(printDateObj()); }
+function hariText(h){ const d = printDateObj(); d.setDate(d.getDate()+h); return '≤ '+h+' hari (s.d. '+fmtDateID(d)+')'; }
+function setPrintDate(v){
+  STATE.printDate = /^\d{4}-\d{2}-\d{2}$/.test(v||'') ? v : todayISO();
+  document.querySelectorAll('.print-date-input').forEach(i=>{ if(i.value!==STATE.printDate) i.value = STATE.printDate; });
+  document.querySelectorAll('.rtl-hari').forEach(e=>{ e.textContent = hariText(Number(e.getAttribute('data-h'))); });
+}
+function printDateControl(){
+  return `<label class="no-print" style="margin:0; display:flex; align-items:center; gap:6px; font-size:12.5px;">Tanggal cetak
+    <input type="date" class="print-date-input" value="${getPrintDate()}" onchange="setPrintDate(this.value)" style="width:auto; padding:5px 8px; font-size:12.5px;">
+    <button type="button" class="btn btn-ghost" style="padding:3px 8px; font-size:11.5px;" title="Kembalikan ke tanggal hari ini" onclick="setPrintDate('')">Hari ini</button></label>`;
+}
+function printExportToolbar(title, subtitle, containerSelector, filename, facilityId, period){
+  const fid = facilityId ? `'${facilityId}'` : 'null';
+  const per = period ? `'${esc(period)}'` : 'null';
+  return `<div class="no-print" style="display:flex; gap:8px; margin:10px 0 16px; flex-wrap:wrap; align-items:center;">
+    ${printDateControl()}
+    <button class="btn btn-secondary" style="padding:6px 12px; font-size:12.5px;" onclick="printVisibleSection('${esc(title)}','${esc(subtitle||'')}','${containerSelector}',${fid},${per})">🖶 Cetak Laporan</button>
+    <button class="btn btn-secondary" style="padding:6px 12px; font-size:12.5px;" onclick="exportVisibleTable('${esc(filename)}','${containerSelector}','${esc(title)}')">⤓ Ekspor Excel</button>
+  </div>`;
+}
+function printSignatureBlock(fac, pjName, pjNip, isDinkesRecap){
+  const today = printDateLabel();
+  if(isDinkesRecap){
+    const kd = STATE.kepalaDinas || {};
+    const namaKd = kd.nama ? esc(kd.nama) : '(...........................................)';
+    const nipKd = kd.nip ? esc(kd.nip) : '..............................';
+    const namaPj = kd.pjMutuNama ? esc(kd.pjMutuNama) : '(...........................................)';
+    const nipPj = kd.pjMutuNip ? esc(kd.pjMutuNip) : '..............................';
+    return `<div style="display:flex; justify-content:space-between; margin-top:50px; font-size:12.5px; font-family:'Manrope',sans-serif;">
+      <div style="text-align:center; width:280px;">
+        <div>Mengetahui,</div>
+        <div>Kepala Dinas Kesehatan Kabupaten Kapuas</div>
+        <div style="height:70px;"></div>
+        <div style="font-weight:700; text-decoration:underline;">${namaKd}</div>
+        <div>NIP. ${nipKd}</div>
+      </div>
+      <div style="text-align:center; width:280px;">
+        <div>Kapuas, ${today}</div>
+        <div>Penanggung Jawab Mutu Dinas Kesehatan Kabupaten Kapuas</div>
+        <div style="height:70px;"></div>
+        <div style="font-weight:700; text-decoration:underline;">${namaPj}</div>
+        <div>NIP. ${nipPj}</div>
+      </div>
+    </div>`;
+  }
+  const facilityName = fac ? fac.name : '';
+  const kepalaNama = (fac && fac.kepalaNama) ? fac.kepalaNama : '(...........................................)';
+  const kepalaNip = (fac && fac.kepalaNip) ? fac.kepalaNip : '..............................';
+  const pjNama = pjName || '(...........................................)';
+  const pjNipVal = pjNip || '..............................';
+  return `<div style="display:flex; justify-content:space-between; margin-top:50px; font-size:12.5px; font-family:'Manrope',sans-serif;">
+    <div style="text-align:center; width:260px;">
+      <div>Mengetahui,</div>
+      <div>Kepala ${esc(facilityName||'Puskesmas/Klinik')}</div>
+      <div style="height:70px;"></div>
+      <div style="font-weight:700; text-decoration:underline;">${esc(kepalaNama)}</div>
+      <div>NIP. ${esc(kepalaNip)}</div>
+    </div>
+    <div style="text-align:center; width:260px;">
+      <div>${esc(facilityName||'')}, ${today}</div>
+      <div>Penanggung Jawab Mutu</div>
+      <div style="height:70px;"></div>
+      <div style="font-weight:700; text-decoration:underline;">${esc(pjNama)}</div>
+      <div>NIP. ${esc(pjNipVal)}</div>
+    </div>
+  </div>`;
+}
+
+
+/* =====================================================================
+   PEMBARUAN V6 — Tanda tangan rekap Dinkes: Kepala Dinas (kiri) & PJ Mutu Dinkes (kanan)
+   ===================================================================== */
+async function saveKepalaDinas(){
+  const val = id => (document.getElementById(id) || {value:''}).value.trim();
+  const data = {nama:val('kd-nama'), nip:val('kd-nip'), pjMutuNama:val('kd-pj-nama'), pjMutuNip:val('kd-pj-nip'), alamat:val('kd-alamat')};
+  try{
+    await db.collection('config').doc('kepala_dinas').set(data, {merge:true});
+    STATE.kepalaDinas = Object.assign({}, STATE.kepalaDinas||{}, data);
+    toast('Data Kepala Dinas & PJ Mutu Dinkes tersimpan.');
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
 }
 
 </script>
