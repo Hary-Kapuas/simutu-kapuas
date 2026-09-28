@@ -727,7 +727,7 @@ const DINKES_TABS = [
   {id:'kepatuhan', label:'Kepatuhan Pelaporan', icon:'✓'},
   {id:'fasilitas', label:'Kelola Fasilitas', icon:'⌂'},
   {id:'akun', label:'Kelola Akun', icon:'◐'},
-  {id:'target', label:'Target Indikator', icon:'◈'},
+  {id:'target', label:'Target & Batas Waktu', icon:'◈'},
 ];
 function renderDinkesShell(){
   const nav = DINKES_TABS.map(t=>`<div class="navlink ${STATE.dinkesTab===t.id?'active':''}" onclick="setDinkesTab('${t.id}')"><span>${t.icon}</span> ${t.label}</div>`).join('');
@@ -778,6 +778,7 @@ function viewRingkasan(){
       ${statCard('Fasilitas Aktif', total, 'Puskesmas &amp; Klinik terdaftar')}
       ${statCard('Sudah Lapor — '+periodLabel(STATE.period), ringkasanData? reported+' / '+total : '…', 'Minimal 1 indikator INM')}
       ${statCard('Lapor Lengkap (6/6)', ringkasanData? complete+' / '+total : '…', 'Seluruh indikator INM terisi')}
+      ${statCard('Terlambat Lapor', ringkasanData? ringkasanData.filter(r=>{ const t=timelinessInfo(STATE.period, r.submittedAt, r.exists && r.reportedCount>0); return t.code==='late'||t.code==='missing-late'; }).length+' / '+total : '…', 'Dikirim setelah batas / belum lapor lewat batas')}
     </div>
     <div class="card" style="padding:18px; margin-bottom:22px;">
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
@@ -1665,7 +1666,7 @@ async function submitIkpReport(facilityId){
       facilityId, tanggal, unit, deskripsi, jenis, probabilitas:prob, dampak, grading, tindakLanjut,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
     };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('ikp_reports').add(payload);
     toast('Laporan insiden tersimpan.');
     ['ikp-unit','ikp-deskripsi','ikp-tindaklanjut'].forEach(id=>document.getElementById(id).value='');
@@ -1795,7 +1796,7 @@ async function submitPpiPajanan(facilityId){
       namaSumber:g('pj-namasumber'), noRM:g('pj-norm'), ruangRawat:g('pj-ruangrawat'), pemantauanPajanan:g('pj-pemantauan'),
       createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
     };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('ppi_pajanan').add(payload);
     toast('Laporan pajanan tersimpan.');
     renderFacilityShell();
@@ -1870,7 +1871,7 @@ async function submitPpiChecklist(facilityId){
   if(!bukti.ok) return;
   try{
     const payload = { facilityId, ruang, period:bulan, items, skor:pct, kategori, createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('ppi_checklist').add(payload);
     toast('Daftar tilik tersimpan.');
     loadPpiChecklistList(facilityId);
@@ -1928,7 +1929,7 @@ async function submitPpiAudit(facilityId){
   if(!bukti.ok) return;
   try{
     const payload = { facilityId, ruang, auditor, tanggal, answers, createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('ppi_audit').add(payload);
     toast('Audit tersimpan.');
     renderFacilityShell();
@@ -2137,7 +2138,7 @@ async function submitAuditForm1(facilityId){
       jumlahKlien:klien, jumlahKetidaksesuaian:tks, persentase:pct, kategori, keterangan:g('f1-ket').trim(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
     };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('audit_form1').add(payload);
     toast('Data tersimpan.');
     renderFacilityShell();
@@ -2223,7 +2224,7 @@ async function submitAuditTemuan(facilityId){
       alasanBelumSelesai: status==='Belum Selesai'?g('tm-alasan'):'', rencanaTindakLanjut: status==='Belum Selesai'?g('tm-rencana'):'',
       keterangan:g('tm-keterangan'), createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
     };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('audit_temuan').add(payload);
     toast('Temuan tersimpan.');
     renderFacilityShell();
@@ -2401,7 +2402,7 @@ async function submitRiskRegister(facilityId){
       pernyataanRisiko:g('rr-pernyataan'), pengendalianSaatIni:g('rr-pengendalian'), dampak, kemungkinan, bobot, skor, tingkat,
       seleraRisiko:g('rr-selera'), perluPenanganan:g('rr-perlu'), createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
     };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('risk_register').add(payload);
     toast('Risiko tersimpan ke register.');
     renderFacilityShell();
@@ -2490,7 +2491,7 @@ async function submitRiskProfil(facilityId){
       residualDampak:reD, residualKemungkinan:reK, residualBobot:reB, residualSkor:riskSkor(reD,reK,reB), residualTingkat:riskTingkatFromBase(reD,reK),
       createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
     };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('risk_profil').add(payload);
     toast('Profil risiko tersimpan.');
     renderFacilityShell();
@@ -2561,7 +2562,7 @@ async function submitRiskPemantauan(facilityId){
       seleraRisiko:g('pm-selera'), trendRisiko:g('pm-trend'), efektivitas:g('pm-efektivitas'),
       createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
     };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('risk_pemantauan').add(payload);
     toast('Pemantauan tersimpan.');
     renderFacilityShell();
@@ -2717,7 +2718,7 @@ async function submitMfkRegister(facilityId){
       skor:s*p, tingkat:mfkTingkatFromScore(s,p), penyebab:g('mf-penyebab'), akibat:g('mf-akibat'), pencegahan:g('mf-pencegahan'),
       upayaPenanganan:g('mf-penanganan'), penanggungJawab:g('mf-pj'), createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
     };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('mfk_register').add(payload);
     toast('Data tersimpan.');
     renderFacilityShell();
@@ -2768,7 +2769,7 @@ async function submitK3Pemetaan(facilityId){
       biologi:g('k3p-biologi'), ergonomi:g('k3p-ergonomi'), psikososial:g('k3p-psikososial'), potensiKecelakaan:g('k3p-potensi'),
       createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
     };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('k3_pemetaan').add(payload);
     toast('Data tersimpan.');
     renderFacilityShell();
@@ -2841,7 +2842,7 @@ async function submitK3Perencanaan(facilityId){
       mitraKerja:g('k3r-mitra'), waktuPelaksanaan:g('k3r-waktu'), anggaranRincian:g('k3r-rincian'), anggaranTotal:Number(g('k3r-total'))||0,
       indikatorKinerja:g('k3r-indikator'), sumberPembiayaan:g('k3r-sumberdana'), createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
     };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('k3_perencanaan').add(payload);
     toast('Data tersimpan.');
     renderFacilityShell();
@@ -2905,7 +2906,7 @@ async function submitK3B3(facilityId){
       piktogram, msds:g('b3-msds'), label:g('b3-label'), bentukKemasan:g('b3-kemasan'), tempatPenyimpanan:g('b3-simpan'), keterangan:g('b3-ket'),
       createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
     };
-    if(bukti.data){ payload.buktiDukungUrl = bukti.data.url; payload.buktiDukungName = bukti.data.name; }
+    applyBukti(payload, bukti);
     await db.collection('k3_b3').add(payload);
     toast('Data tersimpan.');
     renderFacilityShell();
@@ -3099,6 +3100,835 @@ async function saveOwnProfile(){
     renderFacilityShell();
   }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
 }
+
+/* =====================================================================
+   PEMBARUAN V2
+   - Bukti dukung: semua jenis file, banyak file, satu wadah per indikator (INM & PMP)
+   - Folder Google Drive otomatis per fasilitas > modul > periode
+   - PMP dipisah: Mutu Prioritas Unit (bulanan) & Puskesmas/Klinik (tahunan)
+   - Batas waktu pelaporan + penandaan "Terlambat"
+   Catatan: fungsi di bawah ini MENIMPA fungsi bernama sama yang didefinisikan
+   lebih awal di file ini (definisi terakhir yang dipakai browser).
+   ===================================================================== */
+const MAX_UPLOAD_BYTES = 10*1024*1024;
+const MIME_BY_EXT = {pdf:'application/pdf', xls:'application/vnd.ms-excel', xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', csv:'text/csv',
+  doc:'application/msword', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ppt:'application/vnd.ms-powerpoint',
+  pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', txt:'text/plain', zip:'application/zip'};
+const BUKTI_MODULE_BY_PREFIX = {ikp:'IKP', pj:'PPI-Laporan-Pajanan', chk:'PPI-Daftar-Tilik', ad:'PPI-Audit-Kualitas', f1:'Audit-Hasil-Indikator', tm:'Audit-Temuan',
+  rr:'Risiko-Register', rp:'Risiko-Profil', pm:'Risiko-Pemantauan', mf:'MFK-Register-Risiko', k3p:'K3-Pemetaan', k3r:'K3-Perencanaan', b3:'K3-Inventaris-B3'};
+let __uploadBusy = false;
+
+/* ---------- Perbaikan: nama sheet Excel maks 31 karakter & tanpa karakter terlarang ---------- */
+function downloadXlsx(filename, aoa, sheetName){
+  const safeSheet = String(sheetName||'Data').replace(/[\\\/\?\*\[\]:]/g,'-').substring(0,31) || 'Data';
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  XLSX.utils.book_append_sheet(wb, ws, safeSheet);
+  const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  const blob = new Blob([wbout], {type:'application/octet-stream'});
+  const reader = new FileReader();
+  reader.onload = async function(){
+    const base64 = reader.result.split(',')[1];
+    if(downloadsCap){
+      try{ await downloadsCap.save({filename, data: base64, encoding:'base64'}); return; }catch(e){}
+    }
+    const url = URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+    a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  };
+  reader.readAsDataURL(blob);
+}
+function exportVisibleTable(filename, containerSelector, sheetName){
+  const tables = document.querySelectorAll(containerSelector+' table');
+  if(!tables.length){ toast('Belum ada data untuk diekspor.', 'error'); return; }
+  const aoa = [];
+  tables.forEach((table,ti)=>{
+    if(ti>0) aoa.push([]);
+    table.querySelectorAll('tr').forEach(tr=>{
+      const cells = Array.from(tr.querySelectorAll('th,td')).map(td=>td.textContent.replace(/\s+/g,' ').trim());
+      if(cells.length && cells.some(c=>c!=='')) aoa.push(cells);
+    });
+  });
+  downloadXlsx(filename, aoa, sheetName||'Data');
+}
+
+/* ---------- Batas waktu pelaporan ---------- */
+function deadlineForPeriod(period){
+  const cfg = STATE.deadline || {};
+  const hb = Number(cfg.hariBulanan)||10, ht = Number(cfg.hariTahunan)||31, bt = Number(cfg.bulanTahunan)||1;
+  if(/^\d{4}-\d{2}$/.test(String(period))){
+    const parts = period.split('-').map(Number); const y=parts[0], m=parts[1];
+    const ny = m===12 ? y+1 : y, nm = m===12 ? 1 : m+1;
+    const dim = new Date(ny, nm, 0).getDate();
+    return new Date(ny, nm-1, Math.min(hb, dim), 23, 59, 59);
+  }
+  if(/^\d{4}$/.test(String(period))){
+    const y = Number(period)+1; const dim = new Date(y, bt, 0).getDate();
+    return new Date(y, bt-1, Math.min(ht, dim), 23, 59, 59);
+  }
+  return null;
+}
+function fmtDateID(d){ return d.getDate()+' '+MONTHS_FULL[d.getMonth()]+' '+d.getFullYear(); }
+function tsToDate(ts){ return ts && typeof ts.toDate==='function' ? ts.toDate() : null; }
+function timelinessInfo(period, submittedAt, docExists){
+  const dl = deadlineForPeriod(period); const sub = tsToDate(submittedAt);
+  if(!dl) return {code:'na', label:'—', cls:'pill-warn', dl:null, sub:sub};
+  if(sub) return sub<=dl ? {code:'ontime', label:'Tepat waktu', cls:'pill-ok', dl:dl, sub:sub} : {code:'late', label:'Terlambat', cls:'pill-bad', dl:dl, sub:sub};
+  if(docExists) return {code:'legacy', label:'Tanpa catatan waktu', cls:'pill-warn', dl:dl, sub:null};
+  return new Date()>dl ? {code:'missing-late', label:'Belum lapor — lewat batas', cls:'pill-bad', dl:dl, sub:null}
+                       : {code:'pending', label:'Belum lapor', cls:'pill-warn', dl:dl, sub:null};
+}
+function deadlineBannerHtml(period, submittedAt, docExists){
+  const t = timelinessInfo(period, submittedAt, docExists);
+  if(!t.dl) return '';
+  const dlTxt = fmtDateID(t.dl);
+  const perTxt = /^\d{4}$/.test(String(period)) ? 'tahun '+period : periodLabel(period);
+  let html, bg='var(--paper-raised)', fg='var(--ink)', bd='var(--line)';
+  if(t.sub){
+    html = `Batas pengisian ${perTxt}: <strong>${dlTxt}</strong>. Pertama kali dikirim: ${fmtDateID(t.sub)} — <span class="pill ${t.cls}">${t.label}</span>`;
+  } else if(t.code==='legacy'){
+    html = `Batas pengisian ${perTxt}: <strong>${dlTxt}</strong>. Data ini tersimpan sebelum pencatatan waktu diaktifkan.`;
+  } else if(new Date()>t.dl){
+    html = `⚠ Batas pengisian ${perTxt} (<strong>${dlTxt}</strong>) sudah lewat. Data yang dikirim sekarang akan tercatat <strong>TERLAMBAT</strong>.`;
+    bg='var(--rust-mist)'; fg='var(--rust)'; bd='var(--rust)';
+  } else {
+    const days = Math.ceil((t.dl - new Date())/86400000);
+    html = `Batas pengisian ${perTxt}: <strong>${dlTxt}</strong> (sisa ${days} hari).`;
+    bg='var(--teal-mist)'; fg='var(--teal-deep)'; bd='var(--teal)';
+  }
+  return `<div class="no-print" style="margin-bottom:14px; padding:10px 14px; border-radius:8px; font-size:13px; background:${bg}; color:${fg}; border:1px solid ${bd};">${html}</div>`;
+}
+function recordWaktuBadge(it){
+  const period = it.period || it.bulan; if(!period) return '';
+  const t = timelinessInfo(period, it.createdAt, true);
+  return `<span class="pill ${t.cls}" style="font-size:11px;">${t.label}</span>`;
+}
+async function loadTargets(){
+  try{ const s1 = await db.collection('config').doc('inm_targets').get(); STATE.targets = s1.exists ? s1.data() : {}; }catch(e){ STATE.targets = {}; }
+  try{ const s2 = await db.collection('config').doc('kepala_dinas').get(); STATE.kepalaDinas = s2.exists ? s2.data() : {}; }catch(e){ STATE.kepalaDinas = {}; }
+  try{ const s3 = await db.collection('config').doc('deadline').get(); STATE.deadline = s3.exists ? s3.data() : {}; }catch(e){ STATE.deadline = {}; }
+}
+function viewTarget(){
+  const rows = INM.map(ind=>`<tr>
+    <td style="font-weight:600;">${esc(ind.name)}</td>
+    <td><input type="number" step="0.01" style="width:100px;" id="target-${ind.id}" value="${getTarget(ind.id)}"></td>
+  </tr>`).join('');
+  const dl = STATE.deadline || {};
+  const monthOpts = MONTHS_FULL.map((m,i)=>`<option value="${i+1}" ${(Number(dl.bulanTahunan)||1)===i+1?'selected':''}>${m}</option>`).join('');
+  const content = `
+    <div class="card" style="padding:18px; max-width:560px;">
+      <p style="color:var(--ink-soft); font-size:13.5px; margin-top:0;">Target ini mengikuti standar nasional INM Puskesmas dan dapat disesuaikan bila ada pembaruan kebijakan dari Kemenkes.</p>
+      <table><thead><tr><th>Indikator</th><th>Target (%)</th></tr></thead><tbody>${rows}</tbody></table>
+      <button class="btn btn-primary" style="margin-top:16px;" onclick="saveTargets()">Simpan Target</button>
+    </div>
+    <div class="card" style="padding:18px; max-width:560px; margin-top:16px;">
+      <h3 class="serif" style="margin:0 0 6px; font-size:16px;">Batas Waktu Pelaporan</h3>
+      <p style="color:var(--ink-soft); font-size:13px; margin:0 0 14px;">Laporan yang <strong>pertama kali dikirim</strong> setelah batas ini dicatat sebagai <strong>Terlambat</strong> (tetap bisa diisi, hanya diberi tanda).</p>
+      <label>Laporan bulanan (INM, PMP Unit, Daftar Tilik PPI, Inventaris B3) — tanggal batas pada bulan berikutnya</label>
+      <input type="number" min="1" max="28" id="dl-bulanan" value="${Number(dl.hariBulanan)||10}" style="max-width:120px; margin-bottom:14px;">
+      <label>Laporan tahunan (PMP Puskesmas/Klinik) — batas pada tahun berikutnya</label>
+      <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+        <input type="number" min="1" max="31" id="dl-hari-tahunan" value="${Number(dl.hariTahunan)||31}" style="max-width:100px;">
+        <select id="dl-bulan-tahunan" style="max-width:180px;">${monthOpts}</select>
+      </div>
+      <button class="btn btn-primary" onclick="saveDeadline()">Simpan Batas Waktu</button>
+    </div>
+  `;
+  return ['Target Indikator & Batas Waktu', 'Ubah nilai target dan batas waktu pelaporan', content];
+}
+async function saveDeadline(){
+  const hariBulanan = Math.min(28, Math.max(1, Number(document.getElementById('dl-bulanan').value)||10));
+  const hariTahunan = Math.min(31, Math.max(1, Number(document.getElementById('dl-hari-tahunan').value)||31));
+  const bulanTahunan = Number(document.getElementById('dl-bulan-tahunan').value)||1;
+  try{
+    await db.collection('config').doc('deadline').set({hariBulanan, hariTahunan, bulanTahunan}, {merge:true});
+    STATE.deadline = {hariBulanan, hariTahunan, bulanTahunan};
+    toast('Batas waktu pelaporan tersimpan.');
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+
+/* ---------- Upload bukti dukung (semua jenis file, banyak file, folder per fasilitas) ---------- */
+function guessMime(file){
+  if(file.type) return file.type;
+  const ext = (String(file.name).split('.').pop()||'').toLowerCase();
+  return MIME_BY_EXT[ext] || 'application/octet-stream';
+}
+function fileToBase64(blob){
+  return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(blob); });
+}
+async function compressImage(file){
+  if(!/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
+  try{
+    const bmp = await createImageBitmap(file);
+    const maxDim = 1600; const scale = Math.min(1, maxDim/Math.max(bmp.width, bmp.height));
+    if(scale===1 && file.size < 1.5*1024*1024){ if(bmp.close) bmp.close(); return file; }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width*scale); canvas.height = Math.round(bmp.height*scale);
+    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    if(bmp.close) bmp.close();
+    const blob = await new Promise(res=>canvas.toBlob(res, 'image/jpeg', 0.8));
+    if(blob && blob.size < file.size){ return new File([blob], file.name.replace(/\.[^.]+$/,'')+'.jpg', {type:'image/jpeg'}); }
+    return file;
+  }catch(e){ return file; }
+}
+function facilityFolderLabel(facilityId){
+  const f = STATE.facilities.find(x=>x.id===facilityId);
+  if(!f) return 'Faskes-'+facilityId;
+  const t = facilityTypeLabel(f.type);
+  return (t ? t+' ' : '')+f.name;
+}
+function buildUploadMeta(facilityId, moduleName, period, label){
+  return {folderPath:[facilityFolderLabel(facilityId), moduleName, period||currentPeriod()], label:String(label||'').replace(/[^\w\- ]+/g,'').trim().substring(0,30)};
+}
+async function uploadFiles(fileList, meta, statusEl){
+  if(__uploadBusy){ toast('Masih ada unggahan yang berjalan, mohon tunggu.', 'error'); return null; }
+  __uploadBusy = true;
+  const files = Array.from(fileList); const out = [];
+  try{
+    for(let i=0;i<files.length;i++){
+      let f = files[i];
+      if(statusEl) statusEl.textContent = 'Mengunggah '+(i+1)+'/'+files.length+': '+f.name+' …';
+      f = await compressImage(f);
+      if(f.size > MAX_UPLOAD_BYTES){ toast('File "'+f.name+'" melebihi batas 10MB.', 'error'); if(statusEl) statusEl.textContent=''; return null; }
+      const base64 = await fileToBase64(f);
+      const resp = await fetch(UPLOAD_SCRIPT_URL, {method:'POST', body: JSON.stringify({fileBase64:base64, fileName:f.name, mimeType:guessMime(f), folderPath:meta.folderPath, filePrefix:meta.label||''})});
+      const data = await resp.json();
+      if(!data.success) throw new Error(data.error || 'Upload gagal');
+      out.push({url:data.url, name:f.name, size:f.size, uploadedAt:new Date().toISOString()});
+    }
+    if(statusEl) statusEl.textContent = '';
+    return out;
+  }catch(e){
+    toast('Gagal mengunggah bukti dukung: '+e.message, 'error');
+    if(statusEl) statusEl.textContent = '';
+    return null;
+  }finally{ __uploadBusy = false; }
+}
+function newRecordBuktiFieldHtml(prefix){
+  return `<label>Bukti Dukung (opsional — foto, PDF, Word, Excel, dll.; boleh lebih dari satu file, maks 10MB/file)</label>
+    <input type="file" id="${prefix}-bukti-file" multiple style="margin-bottom:4px;">
+    <div id="${prefix}-bukti-status" style="font-size:12px; color:var(--ink-soft); margin-bottom:10px;"></div>`;
+}
+async function maybeUploadBukti(prefix){
+  const input = document.getElementById(prefix+'-bukti-file');
+  if(!input || !input.files.length) return {ok:true, files:[], data:null};
+  const fid = (STATE.profile && STATE.profile.facilityId) || STATE.selectedFacilityId;
+  const meta = buildUploadMeta(fid, BUKTI_MODULE_BY_PREFIX[prefix]||prefix, currentPeriod(), '');
+  const files = await uploadFiles(input.files, meta, document.getElementById(prefix+'-bukti-status'));
+  if(!files) return {ok:false, files:[], data:null};
+  return {ok:true, files:files, data:files[0]||null};
+}
+function applyBukti(payload, bukti){
+  if(bukti && bukti.files && bukti.files.length){
+    payload.buktiFiles = bukti.files;
+    payload.buktiDukungUrl = bukti.files[0].url;
+    payload.buktiDukungName = bukti.files[0].name;
+  }
+}
+function buktiFilesOf(it){
+  if(Array.isArray(it.buktiFiles) && it.buktiFiles.length) return it.buktiFiles;
+  if(it.buktiDukungUrl) return [{url:it.buktiDukungUrl, name:it.buktiDukungName||'File'}];
+  return [];
+}
+function buktiTd(it, collection, reloadFnStr, isDinkesView){
+  const files = buktiFilesOf(it);
+  const buktiCell = `<td>${files.length ? files.map((f,i)=>`<a href="${esc(f.url)}" target="_blank" rel="noopener" style="display:block;">${files.length>1?'File '+(i+1):'Lihat'}</a>`).join('') : '—'}</td>`;
+  const waktu = (collection==='ppi_checklist' || collection==='k3_b3') ? `<div style="margin-top:4px;">${recordWaktuBadge(it)}</div>` : '';
+  if(isDinkesView){
+    return buktiCell + `<td>${verifikasiBadgeHtml(it.statusVerifikasi)}${waktu}
+      <button class="btn btn-ghost no-print" style="padding:3px 7px; font-size:11px; margin-top:4px; display:block;" onclick="openVerifikasiModal('${collection}','${it.id}', ${reloadFnStr})">Verifikasi</button></td>`;
+  }
+  return buktiCell + `<td>${verifikasiBadgeHtml(it.statusVerifikasi)}${it.catatanVerifikasi?`<div style="font-size:11px; color:var(--ink-soft); margin-top:3px; white-space:normal; max-width:160px;">${esc(it.catatanVerifikasi)}</div>`:''}${waktu}</td>`;
+}
+async function openVerifikasiModal(collection, docId, reloadFn){
+  try{
+    const snap = await db.collection(collection).doc(docId).get();
+    if(!snap.exists){ toast('Data tidak ditemukan.', 'error'); return; }
+    const it = snap.data(); const files = buktiFilesOf(it);
+    const old = document.getElementById('verifikasi-modal-host'); if(old) old.remove();
+    const host = document.createElement('div'); host.id = 'verifikasi-modal-host'; document.body.appendChild(host);
+    const cur = it.statusVerifikasi || 'Belum Diverifikasi';
+    host.innerHTML = modalWrap(`
+      <h3 class="serif" style="margin:0 0 14px;">Verifikasi Bukti Dukung</h3>
+      <div style="margin-bottom:12px; font-size:13px;">
+        ${files.length ? 'Bukti dukung:'+files.map(f=>`<div><a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name||'Lihat file')}</a></div>`).join('') : '<span style="color:var(--ink-soft);">⚠ Belum ada bukti dukung diunggah oleh fasilitas.</span>'}
+      </div>
+      <label>Status Verifikasi</label>
+      <select id="vf-status" style="margin-bottom:12px;">
+        ${['Belum Diverifikasi','Terverifikasi','Perlu Klarifikasi'].map(s=>`<option value="${s}" ${cur===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <label>Catatan</label>
+      <textarea id="vf-catatan" rows="3" style="margin-bottom:16px;">${esc(it.catatanVerifikasi||'')}</textarea>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="document.getElementById('verifikasi-modal-host').remove()">Batal</button>
+        <button class="btn btn-primary" onclick="saveVerifikasi('${collection}','${docId}')">Simpan</button>
+      </div>`);
+    window.__verifikasiReload = reloadFn;
+  }catch(e){ toast('Gagal membuka data: '+e.message, 'error'); }
+}
+
+/* ---------- Bukti dukung per indikator (INM & PMP) + verifikasi per indikator ---------- */
+function evidenceCellHtml(prefix, indId, files, canEdit, collection, docId){
+  const list = (files||[]).map((f,i)=>`<div style="display:flex; align-items:center; gap:4px; font-size:12px; margin-bottom:3px;">
+      <a href="${esc(f.url)}" target="_blank" rel="noopener" style="max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block;">${esc(f.name||'File')}</a>
+      ${canEdit?`<button class="btn btn-ghost no-print" style="padding:0 6px; font-size:14px; color:var(--rust);" title="Hapus dari daftar" onclick="removeIndicatorBukti('${collection}','${docId}','${indId}',${i})">×</button>`:''}
+    </div>`).join('');
+  const input = canEdit ? `<input type="file" multiple id="${prefix}-file-${indId}" style="font-size:12px; padding:4px; width:100%; min-width:190px;">` : '';
+  return `<div style="min-width:200px;">${list || (canEdit ? '' : '<span style="color:var(--ink-soft);">—</span>')}${input}</div>`;
+}
+async function removeIndicatorBukti(collection, docId, indId, idx){
+  if(!confirm('Hapus file ini dari daftar bukti dukung? (Berkas asli di Google Drive tidak ikut terhapus.)')) return;
+  try{
+    const ref = db.collection(collection).doc(docId);
+    const snap = await ref.get();
+    const cur = (((snap.data()||{}).bukti)||{})[indId] || [];
+    await ref.update({['bukti.'+indId]: cur.filter((_,i)=>i!==idx)});
+    toast('File dihapus dari daftar.');
+    renderFacilityShell();
+  }catch(e){ toast('Gagal menghapus: '+e.message, 'error'); }
+}
+function verifState(entry, num, den, nFiles){
+  if(!entry || !entry.status || entry.status==='Belum Diverifikasi') return {code:'none', badge:verifikasiBadgeHtml('Belum Diverifikasi'), catatan:(entry&&entry.catatan)||''};
+  const s = entry.snap;
+  const stale = s && (Number(s.num)!==Number(num||0) || Number(s.den)!==Number(den||0) || Number(s.files)!==Number(nFiles||0));
+  if(stale) return {code:'stale', badge:'<span class="pill pill-warn">Perlu verifikasi ulang</span>', catatan:((entry.catatan||'')+' (data/bukti berubah setelah verifikasi)').trim()};
+  if(entry.status==='Terverifikasi') return {code:'ok', badge:verifikasiBadgeHtml('Terverifikasi'), catatan:entry.catatan||''};
+  return {code:'clarify', badge:verifikasiBadgeHtml('Perlu Klarifikasi'), catatan:entry.catatan||''};
+}
+function openIndicatorVerifModal(cfg){
+  window.__ivCfg = cfg;
+  const old = document.getElementById('iv-modal-host'); if(old) old.remove();
+  const host = document.createElement('div'); host.id = 'iv-modal-host'; document.body.appendChild(host);
+  const blocks = cfg.indicators.map(ind=>{
+    const files = ((cfg.docData.bukti||{})[ind.id]) || [];
+    const entry = (cfg.docData.verifikasi||{})[ind.id];
+    const vs = verifState(entry, ind.num, ind.den, files.length);
+    const warns = [];
+    if(ind.den<=0) warns.push('Belum diisi');
+    if(ind.den>0 && files.length===0) warns.push('⚠ Belum ada bukti dukung');
+    if(ind.num>ind.den) warns.push('⚠ Numerator melebihi denominator');
+    if(vs.code==='stale') warns.push('↻ Data/bukti berubah setelah verifikasi terakhir');
+    const curStatus = entry && entry.status ? entry.status : 'Belum Diverifikasi';
+    return `<div style="border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px;">
+      <div style="font-weight:700; font-size:13.5px;">${esc(ind.name)}</div>
+      <div style="font-size:12.5px; color:var(--ink-soft); margin:2px 0 6px;">N/D: ${ind.num} / ${ind.den} = <strong>${fmtPct(pct(ind.num, ind.den))}</strong>${ind.target!=null?' · Target '+ind.target+'%':''}</div>
+      ${warns.length?`<div style="font-size:12px; color:var(--rust); margin-bottom:6px;">${warns.map(esc).join(' · ')}</div>`:''}
+      <div style="font-size:12.5px; margin-bottom:8px;">${files.length ? files.map(f=>`<a href="${esc(f.url)}" target="_blank" rel="noopener" style="display:block;">${esc(f.name||'File')}</a>`).join('') : '<span style="color:var(--ink-soft);">Tidak ada berkas</span>'}</div>
+      <div style="display:grid; grid-template-columns:180px 1fr; gap:10px; align-items:start;">
+        <select id="iv-st-${ind.id}" data-hasdata="${ind.den>0?1:0}">
+          ${['Belum Diverifikasi','Terverifikasi','Perlu Klarifikasi'].map(s=>`<option value="${s}" ${curStatus===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+        <textarea id="iv-ct-${ind.id}" rows="2" placeholder="Catatan (opsional)">${esc((entry&&entry.catatan)||'')}</textarea>
+      </div>
+    </div>`;
+  }).join('');
+  host.innerHTML = `<div style="position:fixed; inset:0; background:rgba(18,49,43,.45); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px;" onclick="if(event.target===this) document.getElementById('iv-modal-host').remove()">
+    <div class="card" style="padding:20px; width:100%; max-width:720px; max-height:90vh; overflow-y:auto;" onclick="event.stopPropagation()">
+      <h3 class="serif" style="margin:0 0 4px;">${esc(cfg.title)}</h3>
+      <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 14px;">Periksa berkas bukti tiap indikator, lalu tetapkan statusnya.</p>
+      ${blocks}
+      <div style="display:flex; gap:8px; justify-content:space-between; flex-wrap:wrap; margin-top:6px;">
+        <button class="btn btn-secondary" onclick="ivMarkAll()">Tandai semua yang terisi: Terverifikasi</button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-ghost" onclick="document.getElementById('iv-modal-host').remove()">Batal</button>
+          <button class="btn btn-primary" onclick="saveIndicatorVerif()">Simpan Verifikasi</button>
+        </div>
+      </div>
+    </div></div>`;
+}
+function ivMarkAll(){
+  document.querySelectorAll('#iv-modal-host select[data-hasdata="1"]').forEach(s=>{ s.value = 'Terverifikasi'; });
+}
+async function saveIndicatorVerif(){
+  const cfg = window.__ivCfg; if(!cfg) return;
+  const who = (STATE.profile && (STATE.profile.name||STATE.profile.email)) || STATE.user.email;
+  const map = {};
+  cfg.indicators.forEach(ind=>{
+    const files = ((cfg.docData.bukti||{})[ind.id]) || [];
+    map[ind.id] = {
+      status: document.getElementById('iv-st-'+ind.id).value,
+      catatan: document.getElementById('iv-ct-'+ind.id).value.trim(),
+      verifiedBy: who, verifiedAt: new Date().toISOString(),
+      snap: {num:Number(ind.num)||0, den:Number(ind.den)||0, files:files.length}
+    };
+  });
+  try{
+    await db.collection(cfg.collection).doc(cfg.docId).update({verifikasi: map, verifiedBy: who, verifiedAt: firebase.firestore.FieldValue.serverTimestamp()});
+    toast('Verifikasi tersimpan.');
+    const host = document.getElementById('iv-modal-host'); if(host) host.remove();
+    if(cfg.reload) cfg.reload();
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+function setSaveBusy(btnId, busy, label){
+  const b = document.getElementById(btnId); if(!b) return;
+  b.disabled = busy; if(label) b.textContent = busy ? 'Menyimpan…' : label;
+}
+
+/* ---------- INM: sisi fasilitas ---------- */
+async function loadFacInm(facilityId, period){
+  const docId = facilityId+'_'+period;
+  const doc = await db.collection('inm_reports').doc(docId).get();
+  const docData = doc.exists ? doc.data() : {};
+  const data = docData.indicators||{}, bukti = docData.bukti||{}, verif = docData.verifikasi||{};
+  const el = document.getElementById('fac-inm-body');
+  if(!el) return;
+  el.innerHTML = deadlineBannerHtml(period, docData.submittedAt, doc.exists) + `<div class="card scrollx" style="padding:4px;">
+    <table>
+      <thead><tr><th style="min-width:220px;">Indikator</th><th>Numerator</th><th>Denominator</th><th>Capaian</th><th>Target</th><th>Status</th><th>Bukti Dukung</th><th>Verifikasi Dinkes</th></tr></thead>
+      <tbody>
+      ${INM.map(ind=>{
+        const v = data[ind.id]||{}; const p = pct(v.num, v.den); const t = getTarget(ind.id);
+        const files = bukti[ind.id]||[]; const vs = verifState(verif[ind.id], v.num, v.den, files.length);
+        return `<tr>
+          <td style="white-space:normal;">
+            <div style="font-weight:600;">${esc(ind.name)}</div>
+            <div style="font-size:11.5px; color:var(--ink-soft); margin-top:2px;">N: ${esc(ind.numLabel)}<br>D: ${esc(ind.denLabel)}</div>
+          </td>
+          <td><input type="number" min="0" style="width:90px;" value="${v.num??''}" data-inm-num="${ind.id}"></td>
+          <td><input type="number" min="0" style="width:90px;" value="${v.den??''}" data-inm-den="${ind.id}"></td>
+          <td class="inm-pct-${ind.id}" style="font-weight:700;">${fmtPct(p)}</td>
+          <td>${t}%</td>
+          <td><span class="pill ${pillClass(p,t)}">${p===null?'Belum diisi':(p>=t?'Tercapai':'Belum tercapai')}</span></td>
+          <td>${evidenceCellHtml('inm', ind.id, files, true, 'inm_reports', docId)}</td>
+          <td style="white-space:normal; min-width:150px;">${vs.badge}${vs.catatan?`<div style="font-size:11.5px; color:var(--ink-soft); margin-top:3px;">${esc(vs.catatan)}</div>`:''}</td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>
+  </div>
+  ${docData.buktiDukungUrl?`<div style="font-size:12.5px; margin-top:10px;">Bukti dukung umum (unggahan lama): <a href="${esc(docData.buktiDukungUrl)}" target="_blank" rel="noopener">${esc(docData.buktiDukungName||'Lihat file')}</a></div>`:''}
+  <div id="inm-upload-status" style="font-size:12.5px; color:var(--ink-soft); margin-top:12px; min-height:18px;"></div>
+  <button class="btn btn-primary" id="inm-save-btn" onclick="saveFacInm('${facilityId}','${period}')">Simpan Data INM</button>
+  `;
+  INM.forEach(ind=>{
+    const numEl = el.querySelector(`[data-inm-num="${ind.id}"]`);
+    const denEl = el.querySelector(`[data-inm-den="${ind.id}"]`);
+    const upd = ()=>{ const p = pct(numEl.value, denEl.value); el.querySelector('.inm-pct-'+ind.id).textContent = fmtPct(p); };
+    numEl.addEventListener('input', upd); denEl.addEventListener('input', upd);
+  });
+}
+async function saveFacInm(facilityId, period){
+  const el = document.getElementById('fac-inm-body');
+  const indicators = {}; let anyData = false;
+  for(const ind of INM){
+    const num = Number(el.querySelector(`[data-inm-num="${ind.id}"]`).value)||0;
+    const den = Number(el.querySelector(`[data-inm-den="${ind.id}"]`).value)||0;
+    if(num>den){ toast('Numerator tidak boleh melebihi denominator ('+ind.short+').', 'error'); return; }
+    if(den>0) anyData = true;
+    indicators[ind.id] = {num, den};
+  }
+  if(!anyData){ toast('Isi minimal satu indikator (denominator lebih dari 0).', 'error'); return; }
+  setSaveBusy('inm-save-btn', true, 'Simpan Data INM');
+  try{
+    const docRef = db.collection('inm_reports').doc(facilityId+'_'+period);
+    const existing = await docRef.get();
+    const oldBukti = existing.exists ? ((existing.data().bukti)||{}) : {};
+    const newBukti = {}; let hasNew = false;
+    const statusEl = document.getElementById('inm-upload-status');
+    for(const ind of INM){
+      const input = document.getElementById('inm-file-'+ind.id);
+      if(input && input.files.length){
+        const res = await uploadFiles(input.files, buildUploadMeta(facilityId, 'INM', period, ind.short), statusEl);
+        if(!res){ setSaveBusy('inm-save-btn', false, 'Simpan Data INM'); return; }
+        newBukti[ind.id] = (oldBukti[ind.id]||[]).concat(res); hasNew = true;
+      }
+    }
+    const payload = {facilityId, period, indicators, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: STATE.user.uid};
+    if(!existing.exists || !existing.data().submittedAt) payload.submittedAt = firebase.firestore.FieldValue.serverTimestamp();
+    if(hasNew) payload.bukti = Object.assign({}, oldBukti, newBukti);
+    await docRef.set(payload, {merge:true});
+    toast('Data INM tersimpan.');
+    loadFacInm(facilityId, period);
+  }catch(e){
+    toast('Gagal menyimpan: '+e.message, 'error');
+    setSaveBusy('inm-save-btn', false, 'Simpan Data INM');
+  }
+}
+
+/* ---------- INM: sisi Dinkes ---------- */
+async function loadDinkesInm(){
+  const period = STATE.period;
+  const facs = STATE.facilities.filter(f=>f.active!==false);
+  const results = await Promise.all(facs.map(async f=>{
+    const doc = await db.collection('inm_reports').doc(f.id+'_'+period).get();
+    const data = doc.exists ? doc.data() : null;
+    const values = {};
+    INM.forEach(ind=>{ const v = data && data.indicators && data.indicators[ind.id]; values[ind.id] = v ? pct(v.num, v.den) : null; });
+    return {facilityId:f.id, name:f.name, values, exists:doc.exists, data};
+  }));
+  dinkesInmData = {period, rows:results};
+  if(STATE.dinkesTab==='inm') renderDinkesShell();
+}
+function inmRowSummary(r){
+  const ind = (r.data && r.data.indicators) || {}, bukti = (r.data && r.data.bukti) || {}, verif = (r.data && r.data.verifikasi) || {};
+  let withData=0, withBukti=0, ok=0, clar=0, stale=0;
+  INM.forEach(i=>{
+    const v = ind[i.id];
+    if(v && Number(v.den)>0){
+      withData++; const nf = (bukti[i.id]||[]).length; if(nf>0) withBukti++;
+      const vs = verifState(verif[i.id], v.num, v.den, nf);
+      if(vs.code==='ok') ok++; else if(vs.code==='clarify') clar++; else if(vs.code==='stale') stale++;
+    }
+  });
+  return {withData, withBukti, ok, clar, stale};
+}
+function viewDinkesINM(){
+  if(!dinkesInmData || dinkesInmData.period!==STATE.period){ loadDinkesInm(); }
+  let rows = '';
+  if(dinkesInmData && dinkesInmData.period===STATE.period){
+    rows = dinkesInmData.rows.map(r=>{
+      const s = inmRowSummary(r);
+      const t = timelinessInfo(dinkesInmData.period, r.data && r.data.submittedAt, r.exists && s.withData>0);
+      const buktiCell = s.withData ? `<span class="pill ${s.withBukti<s.withData?'pill-warn':'pill-ok'}">${s.withBukti}/${s.withData} indikator</span>` : '—';
+      let verifCell = '—';
+      if(s.withData){
+        if(s.clar>0) verifCell = `<span class="pill pill-bad">${s.clar} perlu klarifikasi</span>`;
+        else if(s.stale>0) verifCell = `<span class="pill pill-warn">${s.stale} perlu verifikasi ulang</span>`;
+        else if(s.ok===s.withData) verifCell = `<span class="pill pill-ok">Terverifikasi</span>`;
+        else verifCell = `<span class="pill pill-warn">${s.ok}/${s.withData} terverifikasi</span>`;
+      }
+      const waktuCell = `<span class="pill ${t.cls}">${t.label}</span>${t.sub?`<div style="font-size:11px; color:var(--ink-soft); margin-top:2px;">${fmtDateID(t.sub)}</div>`:''}`;
+      return `<tr>
+        <td style="font-weight:600;">${esc(r.name)}</td>
+        ${INM.map(ind=>`<td>${fmtPct(r.values[ind.id])}</td>`).join('')}
+        <td>${buktiCell}</td><td>${verifCell}</td><td>${waktuCell}</td>
+        <td><button class="btn btn-ghost no-print" style="padding:4px 8px; font-size:12px;" onclick="openInmVerif('${r.facilityId}')">Verifikasi</button></td>
+      </tr>`;
+    }).join('');
+  }
+  const dl = deadlineForPeriod(STATE.period);
+  const content = `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">${periodPicker()}<span style="font-size:13px; color:var(--ink-soft);">Batas pengisian: <strong>${dl?fmtDateID(dl):'—'}</strong></span></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="exportMutufasyankes()">⤓ Format Mutufasyankes (.xlsx)</button>
+        <button class="btn btn-secondary" onclick="exportInmXlsx()">⤓ Rekap Lengkap (.xlsx)</button>
+        <button class="btn btn-secondary" onclick="printVisibleSection('Rekap Data INM','${periodLabel(STATE.period)}','#dinkes-inm-table',null,'${periodLabel(STATE.period)}')">🖶 Cetak Laporan</button>
+      </div>
+    </div>
+    <div class="card scrollx" style="padding:4px;" id="dinkes-inm-table">
+      <table>
+        <thead><tr><th style="min-width:160px;">Puskesmas / Klinik</th>${INM.map(i=>`<th>${esc(i.short)}<br><span style="font-weight:400; text-transform:none; font-size:10.5px;">Target ${getTarget(i.id)}%</span></th>`).join('')}<th>Bukti Dukung</th><th>Verifikasi</th><th>Waktu Lapor</th><th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="${INM.length+5}" style="color:var(--ink-soft); padding:20px;">Memuat data…</td></tr>`}</tbody>
+      </table>
+    </div>
+  `;
+  return ['Rekap Data INM', 'Capaian 6 Indikator Nasional Mutu per fasilitas', content];
+}
+async function openInmVerif(facilityId){
+  const period = STATE.period, docId = facilityId+'_'+period;
+  try{
+    const snap = await db.collection('inm_reports').doc(docId).get();
+    if(!snap.exists){ toast('Fasilitas ini belum menginput data untuk periode '+periodLabel(period)+'.', 'error'); return; }
+    const d = snap.data(); const fac = STATE.facilities.find(f=>f.id===facilityId);
+    const inds = INM.map(i=>{ const v = (d.indicators||{})[i.id]||{}; return {id:i.id, name:i.name, num:Number(v.num)||0, den:Number(v.den)||0, target:getTarget(i.id)}; });
+    openIndicatorVerifModal({collection:'inm_reports', docId, title:'Verifikasi INM — '+(fac?fac.name:'')+' — '+periodLabel(period), indicators:inds, docData:d, reload:()=>loadDinkesInm()});
+  }catch(e){ toast('Gagal membuka data: '+e.message, 'error'); }
+}
+
+/* ---------- Ringkasan & Kepatuhan Pelaporan (dengan ketepatan waktu) ---------- */
+async function loadRingkasan(){
+  ringkasanLoading = true;
+  const facs = STATE.facilities.filter(f=>f.active!==false);
+  const results = await Promise.all(facs.map(async f=>{
+    const doc = await db.collection('inm_reports').doc(f.id+'_'+STATE.period).get();
+    const data = doc.exists ? doc.data() : null;
+    const values = {}; let reportedCount = 0;
+    INM.forEach(ind=>{
+      const v = data && data.indicators && data.indicators[ind.id];
+      values[ind.id] = v ? pct(v.num, v.den) : null;
+      if(v && Number(v.den)>0) reportedCount++;
+    });
+    return {facilityId:f.id, name:f.name, values, reportedCount, exists:doc.exists, submittedAt:data&&data.submittedAt};
+  }));
+  ringkasanData = results; ringkasanLoading = false;
+  if(STATE.dinkesTab==='ringkasan' || STATE.dinkesTab==='kepatuhan') renderDinkesShell();
+}
+function viewKepatuhan(){
+  if(!ringkasanData){ loadRingkasan(); }
+  const total = INM.length;
+  const buckets = {}; for(let i=0;i<=total;i++) buckets[i]=[];
+  if(ringkasanData) ringkasanData.forEach(r=>{ buckets[r.reportedCount].push(r.name); });
+  const rows = [];
+  for(let i=total;i>=0;i--){
+    rows.push(`<tr>
+      <td style="font-weight:600;">Melaporkan ${i}/${total} indikator</td>
+      <td>${ringkasanData? buckets[i].length : '…'}</td>
+      <td style="white-space:normal; color:var(--ink-soft); font-size:12.5px;">${ringkasanData? esc(buckets[i].join(', ')||'—') : ''}</td>
+    </tr>`);
+  }
+  const groups = {ontime:[], late:[], 'missing-late':[], pending:[], legacy:[]};
+  if(ringkasanData) ringkasanData.forEach(r=>{
+    const t = timelinessInfo(STATE.period, r.submittedAt, r.exists && r.reportedCount>0);
+    if(groups[t.code]) groups[t.code].push(r.name);
+  });
+  const waktuRows = [
+    ['ontime','Tepat waktu','pill-ok'], ['late','Terlambat (dikirim setelah batas)','pill-bad'],
+    ['missing-late','Belum lapor — sudah lewat batas','pill-bad'], ['pending','Belum lapor — masih dalam batas waktu','pill-warn'],
+    ['legacy','Data tanpa catatan waktu','pill-warn']
+  ].map(g=>`<tr>
+      <td><span class="pill ${g[2]}">${g[1]}</span></td>
+      <td>${ringkasanData? groups[g[0]].length : '…'}</td>
+      <td style="white-space:normal; color:var(--ink-soft); font-size:12.5px;">${ringkasanData? esc(groups[g[0]].join(', ')||'—') : ''}</td>
+    </tr>`).join('');
+  const dl = deadlineForPeriod(STATE.period);
+  const content = `
+    <div style="margin-bottom:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">${periodPicker()}<span style="font-size:13px; color:var(--ink-soft);">Batas pengisian: <strong>${dl?fmtDateID(dl):'—'}</strong></span></div>
+    <div class="card scrollx" style="padding:4px;" id="kepatuhan-table">
+      <table>
+        <thead><tr><th>Kelengkapan</th><th>Jumlah Fasilitas</th><th>Nama Fasilitas</th></tr></thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>
+      <div style="height:16px;"></div>
+      <table>
+        <thead><tr><th>Ketepatan Waktu</th><th>Jumlah Fasilitas</th><th>Nama Fasilitas</th></tr></thead>
+        <tbody>${waktuRows}</tbody>
+      </table>
+    </div>
+    ${printExportToolbar('Kepatuhan Pelaporan INM', periodLabel(STATE.period), '#kepatuhan-table', 'Kepatuhan_'+STATE.period+'.xlsx', null, periodLabel(STATE.period))}
+  `;
+  return ['Kepatuhan Pelaporan INM', 'Kelengkapan indikator dan ketepatan waktu pelaporan per fasilitas', content];
+}
+
+/* ---------- PMP: dipisah Unit (bulanan) vs Puskesmas/Klinik (tahunan) ---------- */
+function pmpLevelOf(it){ return it.level || 'unit'; }
+function pmpLevelName(level){ return level==='fasyankes' ? 'Mutu Prioritas Puskesmas/Klinik (Tahunan)' : 'Mutu Prioritas Unit (Bulanan)'; }
+function pmpPeriodFor(level){
+  if(level==='fasyankes'){ if(!STATE.pmpYear) STATE.pmpYear = new Date().getFullYear(); return String(STATE.pmpYear); }
+  return STATE.period;
+}
+function changePmpYear(v){ STATE.pmpYear = Number(v) || new Date().getFullYear(); render(); }
+function pmpPeriodControl(level){
+  if(level==='fasyankes'){
+    pmpPeriodFor(level);
+    return `<div style="display:flex; align-items:center; gap:8px;"><label style="margin:0;">Tahun</label><input type="number" min="2020" max="2100" value="${STATE.pmpYear}" style="width:100px;" onchange="changePmpYear(this.value)"></div>`;
+  }
+  return periodPicker();
+}
+function pmpLevelTabs(active, isDinkes){
+  const tabs = [{id:'unit', label:'Mutu Prioritas Unit (Bulanan)'}, {id:'fasyankes', label:'Mutu Prioritas Puskesmas/Klinik (Tahunan)'}];
+  return `<div style="display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;">${tabs.map(t=>`
+    <button class="btn ${active===t.id?'btn-primary':'btn-secondary'}" style="padding:7px 13px; font-size:13px;"
+      onclick="${isDinkes?`STATE.dinkesPmpLevel='${t.id}'; renderDinkesShell();`:`STATE.facPmpLevel='${t.id}'; renderFacilityShell();`}">${t.label}</button>`).join('')}</div>`;
+}
+function viewFacPmp(fac){
+  const facilityId = fac ? fac.id : STATE.profile.facilityId;
+  const level = STATE.facPmpLevel || 'unit'; const period = pmpPeriodFor(level);
+  const perLbl = level==='unit' ? periodLabel(period) : 'Tahun '+period;
+  const content = `${pmpLevelTabs(level, false)}
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+      ${pmpPeriodControl(level)}
+      <button class="btn btn-secondary" onclick="openPmpDefModal('${facilityId}')">⚙ Kelola Indikator Lokal</button>
+    </div>
+    <div id="pmp-fac-body"><div class="spinner"></div></div>
+    ${printExportToolbar('Laporan PMP — '+pmpLevelName(level), fac?fac.name:'', '#pmp-fac-body', 'PMP_'+level+'_'+period+'.xlsx', facilityId, perLbl)}
+    <div id="pmp-def-modal"></div>`;
+  loadPmpForFacility(facilityId, period, 'pmp-fac-body', true, level);
+  return ['Input PMP (Mutu Lokal/Prioritas)', 'Unit dilaporkan tiap bulan; Puskesmas/Klinik disusun tahunan', content];
+}
+function viewDinkesPMP(){
+  const level = STATE.dinkesPmpLevel || 'unit'; const period = pmpPeriodFor(level);
+  const perLbl = level==='unit' ? periodLabel(period) : 'Tahun '+period;
+  const opts = STATE.facilities.filter(f=>f.active!==false).map(f=>`<option value="${f.id}" ${STATE.selectedFacilityId===f.id?'selected':''}>${esc(f.name)}</option>`).join('');
+  const fid = STATE.selectedFacilityId || (STATE.facilities[0] && STATE.facilities[0].id);
+  if(!STATE.selectedFacilityId && fid) STATE.selectedFacilityId = fid;
+  const content = `${pmpLevelTabs(level, true)}
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
+      <select style="width:auto; min-width:220px;" onchange="STATE.selectedFacilityId=this.value; renderDinkesShell();">${opts}</select>
+      ${pmpPeriodControl(level)}
+    </div>
+    <div id="pmp-dinkes-body"><div class="spinner"></div></div>
+    ${printExportToolbar('Laporan PMP — '+pmpLevelName(level), '', '#pmp-dinkes-body', 'PMP_'+level+'_'+period+'.xlsx', fid, perLbl)}
+  `;
+  if(fid) loadPmpForFacility(fid, period, 'pmp-dinkes-body', false, level);
+  return ['Data PMP (Mutu Lokal/Prioritas)', 'Mutu Prioritas Unit (bulanan) dan Puskesmas/Klinik (tahunan)', content];
+}
+async function loadPmpForFacility(facilityId, period, targetElId, editable, level){
+  level = level || 'unit';
+  const itemsSnap = await db.collection('pmp_indicators').doc(facilityId).collection('items').get();
+  const items = itemsSnap.docs.map(d=>({id:d.id, ...d.data()})).filter(it=>it.active!==false && pmpLevelOf(it)===level)
+    .sort((a,b)=> String(a.unitName||'').localeCompare(String(b.unitName||'')) || String(a.name).localeCompare(String(b.name)));
+  const docId = facilityId+'_'+period;
+  const reportDoc = await db.collection('pmp_reports').doc(docId).get();
+  const rd = reportDoc.exists ? reportDoc.data() : {};
+  const values = rd.values||{}, bukti = rd.bukti||{}, verif = rd.verifikasi||{};
+  const el = document.getElementById(targetElId);
+  if(!el) return;
+  if(items.length===0){
+    el.innerHTML = `<div class="card" style="padding:24px; text-align:center; color:var(--ink-soft);">Belum ada indikator ${pmpLevelName(level)} yang didefinisikan${editable?'. Klik "Kelola Indikator Lokal" untuk menambahkan.':' oleh fasilitas ini.'}</div>`;
+    return;
+  }
+  const unitCol = level==='unit';
+  el.innerHTML = deadlineBannerHtml(period, rd.submittedAt, reportDoc.exists) + `<div class="card scrollx" style="padding:4px;">
+    <table>
+      <thead><tr>${unitCol?'<th>Unit</th>':''}<th style="min-width:200px;">Indikator Mutu Lokal</th><th>Target</th><th>Numerator</th><th>Denominator</th><th>Capaian</th><th>Status</th><th>Bukti Dukung</th><th>Verifikasi Dinkes</th></tr></thead>
+      <tbody>
+      ${items.map(it=>{
+        const v = values[it.id]||{}; const p = pct(v.num, v.den); const tgt = it.target!=null ? it.target : 100;
+        const files = bukti[it.id]||[]; const vs = verifState(verif[it.id], v.num, v.den, files.length);
+        return `<tr>
+          ${unitCol?`<td style="font-weight:600;">${esc(it.unitName||'—')}</td>`:''}
+          <td id="pmp-name-${it.id}" style="white-space:normal;">${esc(it.name)}</td>
+          <td>${it.target!=null? it.target+'%':'—'}</td>
+          ${editable?`<td><input type="number" min="0" style="width:90px;" value="${v.num??''}" data-pmp-num="${it.id}"></td>
+                      <td><input type="number" min="0" style="width:90px;" value="${v.den??''}" data-pmp-den="${it.id}"></td>`
+                    :`<td>${v.num??'—'}</td><td>${v.den??'—'}</td>`}
+          <td class="pmp-pct-${it.id}" style="font-weight:700;">${fmtPct(p)}</td>
+          <td><span class="pill ${pillClass(p,tgt)}">${p===null?'Belum diisi':(p>=tgt?'Tercapai':'Belum tercapai')}</span></td>
+          <td>${evidenceCellHtml('pmp', it.id, files, editable, 'pmp_reports', docId)}</td>
+          <td style="white-space:normal; min-width:150px;">${vs.badge}${vs.catatan?`<div style="font-size:11.5px; color:var(--ink-soft); margin-top:3px;">${esc(vs.catatan)}</div>`:''}</td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>
+  </div>
+  ${editable
+    ? `<div id="pmp-upload-status" style="font-size:12.5px; color:var(--ink-soft); margin-top:12px; min-height:18px;"></div>
+       <button class="btn btn-primary" id="pmp-save-btn" onclick="savePmpReport('${facilityId}','${period}','${level}')">Simpan Data PMP</button>`
+    : `<button class="btn btn-secondary no-print" style="margin-top:14px;" onclick="openPmpVerif('${facilityId}','${period}','${level}')">Verifikasi Bukti Dukung</button>`}
+  `;
+  if(editable){
+    items.forEach(it=>{
+      const numEl = el.querySelector(`[data-pmp-num="${it.id}"]`), denEl = el.querySelector(`[data-pmp-den="${it.id}"]`);
+      const upd = ()=>{ el.querySelector('.pmp-pct-'+it.id).textContent = fmtPct(pct(numEl.value, denEl.value)); };
+      numEl.addEventListener('input', upd); denEl.addEventListener('input', upd);
+    });
+  }
+}
+async function savePmpReport(facilityId, period, level){
+  level = level || 'unit';
+  const el = document.getElementById('pmp-fac-body');
+  const values = {}; let anyData = false; const ids = [];
+  const numEls = el.querySelectorAll('[data-pmp-num]');
+  for(const inp of numEls){
+    const id = inp.getAttribute('data-pmp-num');
+    const num = Number(inp.value)||0, den = Number(el.querySelector(`[data-pmp-den="${id}"]`).value)||0;
+    const nm = (document.getElementById('pmp-name-'+id)||{}).textContent||'indikator';
+    if(num>den){ toast('Numerator tidak boleh melebihi denominator ('+nm+').', 'error'); return; }
+    if(den>0) anyData = true;
+    values[id] = {num, den}; ids.push(id);
+  }
+  if(!anyData){ toast('Isi minimal satu indikator (denominator lebih dari 0).', 'error'); return; }
+  setSaveBusy('pmp-save-btn', true, 'Simpan Data PMP');
+  try{
+    const docRef = db.collection('pmp_reports').doc(facilityId+'_'+period);
+    const existing = await docRef.get();
+    const oldBukti = existing.exists ? ((existing.data().bukti)||{}) : {};
+    const newBukti = {}; let hasNew = false;
+    const statusEl = document.getElementById('pmp-upload-status');
+    const moduleName = level==='unit' ? 'PMP-Unit' : 'PMP-Puskesmas-Klinik';
+    for(const id of ids){
+      const input = document.getElementById('pmp-file-'+id);
+      if(input && input.files.length){
+        const nm = (document.getElementById('pmp-name-'+id)||{}).textContent||'indikator';
+        const res = await uploadFiles(input.files, buildUploadMeta(facilityId, moduleName, period, nm), statusEl);
+        if(!res){ setSaveBusy('pmp-save-btn', false, 'Simpan Data PMP'); return; }
+        newBukti[id] = (oldBukti[id]||[]).concat(res); hasNew = true;
+      }
+    }
+    const payload = {facilityId, period, level, values, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: STATE.user.uid};
+    if(!existing.exists || !existing.data().submittedAt) payload.submittedAt = firebase.firestore.FieldValue.serverTimestamp();
+    if(hasNew) payload.bukti = Object.assign({}, oldBukti, newBukti);
+    await docRef.set(payload, {merge:true});
+    toast('Data PMP tersimpan.');
+    loadPmpForFacility(facilityId, period, 'pmp-fac-body', true, level);
+  }catch(e){
+    toast('Gagal menyimpan: '+e.message, 'error');
+    setSaveBusy('pmp-save-btn', false, 'Simpan Data PMP');
+  }
+}
+async function openPmpVerif(facilityId, period, level){
+  const docId = facilityId+'_'+period;
+  try{
+    const [itemsSnap, snap] = await Promise.all([db.collection('pmp_indicators').doc(facilityId).collection('items').get(), db.collection('pmp_reports').doc(docId).get()]);
+    if(!snap.exists){ toast('Fasilitas ini belum menginput data PMP untuk periode tersebut.', 'error'); return; }
+    const d = snap.data(); const fac = STATE.facilities.find(f=>f.id===facilityId);
+    const items = itemsSnap.docs.map(x=>({id:x.id, ...x.data()})).filter(it=>it.active!==false && pmpLevelOf(it)===level);
+    const inds = items.map(it=>{ const v = (d.values||{})[it.id]||{}; return {id:it.id, name:(it.unitName?'['+it.unitName+'] ':'')+it.name, num:Number(v.num)||0, den:Number(v.den)||0, target:it.target!=null?it.target:null}; });
+    openIndicatorVerifModal({collection:'pmp_reports', docId, title:'Verifikasi PMP — '+(fac?fac.name:'')+' — '+(level==='unit'?periodLabel(period):'Tahun '+period), indicators:inds, docData:d,
+      reload:()=>loadPmpForFacility(facilityId, period, 'pmp-dinkes-body', false, level)});
+  }catch(e){ toast('Gagal membuka data: '+e.message, 'error'); }
+}
+function reloadPmpFacBody(){
+  const fid = STATE.profile.facilityId; const level = STATE.facPmpLevel || 'unit';
+  loadPmpForFacility(fid, pmpPeriodFor(level), 'pmp-fac-body', true, level);
+}
+function toggleUnitField(){
+  const lv = document.getElementById('pmp-new-level'); const w = document.getElementById('pmp-new-unit-wrap');
+  if(lv && w) w.style.display = lv.value==='unit' ? 'block' : 'none';
+}
+async function openPmpDefModal(facilityId){
+  const snap = await db.collection('pmp_indicators').doc(facilityId).collection('items').get();
+  const items = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  const defLevel = STATE.facPmpLevel || 'unit';
+  document.getElementById('pmp-def-modal').innerHTML = modalWrap(`
+    <h3 class="serif" style="margin:0 0 14px;">Kelola Indikator Mutu Lokal</h3>
+    <div style="max-height:260px; overflow-y:auto; margin-bottom:14px;">
+      ${items.length ? items.map(it=>{
+        const lv = pmpLevelOf(it);
+        return `<div style="padding:8px 0; border-bottom:1px solid var(--line-soft);">
+          <div style="font-weight:600; font-size:13.5px;">${esc(it.name)}</div>
+          <div style="font-size:11.5px; color:var(--ink-soft); margin:2px 0 6px;">${lv==='unit' ? 'Unit: '+esc(it.unitName||'—')+' · Bulanan' : 'Puskesmas/Klinik · Tahunan'} · Target ${it.target??'-'}%${it.active===false?' · Nonaktif':''}</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn btn-ghost" style="padding:3px 8px; font-size:12px;" onclick="togglePmpItem('${facilityId}','${it.id}',${it.active===false})">${it.active===false?'Aktifkan':'Nonaktifkan'}</button>
+            <button class="btn btn-ghost" style="padding:3px 8px; font-size:12px;" onclick="changePmpItemLevel('${facilityId}','${it.id}','${lv==='unit'?'fasyankes':'unit'}')">${lv==='unit'?'Jadikan Tahunan (Puskesmas/Klinik)':'Jadikan Bulanan (Unit)'}</button>
+          </div>
+        </div>`;
+      }).join('') : '<p style="color:var(--ink-soft); font-size:13px;">Belum ada indikator.</p>'}
+    </div>
+    <div style="border-top:1px solid var(--line); padding-top:14px;">
+      <label>Jenis Mutu Prioritas</label>
+      <select id="pmp-new-level" onchange="toggleUnitField()" style="margin-bottom:10px;">
+        <option value="unit" ${defLevel==='unit'?'selected':''}>Mutu Prioritas Unit (dilaporkan bulanan)</option>
+        <option value="fasyankes" ${defLevel==='fasyankes'?'selected':''}>Mutu Prioritas Puskesmas/Klinik (disusun tahunan)</option>
+      </select>
+      <div id="pmp-new-unit-wrap" style="display:${defLevel==='unit'?'block':'none'};">
+        <label>Nama Unit</label>
+        <input id="pmp-new-unit" placeholder="Contoh: Poli Umum, Farmasi, Laboratorium" style="margin-bottom:10px;">
+      </div>
+      <label>Nama Indikator Baru</label>
+      <input id="pmp-new-name" placeholder="Contoh: Kepatuhan Waktu Tunggu Rawat Jalan" style="margin-bottom:10px;">
+      <label>Target (%)</label>
+      <input id="pmp-new-target" type="number" step="0.01" value="100" style="margin-bottom:14px;">
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="closeModal('pmp-def-modal')">Tutup</button>
+        <button class="btn btn-primary" onclick="addPmpItem('${facilityId}')">Tambah</button>
+      </div>
+    </div>
+  `);
+}
+async function addPmpItem(facilityId){
+  const level = document.getElementById('pmp-new-level').value;
+  const unitName = (document.getElementById('pmp-new-unit')||{value:''}).value.trim();
+  const name = document.getElementById('pmp-new-name').value.trim();
+  const target = Number(document.getElementById('pmp-new-target').value)||100;
+  if(!name){ toast('Nama indikator wajib diisi.', 'error'); return; }
+  if(level==='unit' && !unitName){ toast('Nama unit wajib diisi untuk Mutu Prioritas Unit.', 'error'); return; }
+  try{
+    const data = {name, target, active:true, level, createdAt: firebase.firestore.FieldValue.serverTimestamp()};
+    if(level==='unit') data.unitName = unitName;
+    await db.collection('pmp_indicators').doc(facilityId).collection('items').add(data);
+    toast('Indikator ditambahkan.');
+    openPmpDefModal(facilityId); reloadPmpFacBody();
+  }catch(e){ toast('Gagal: '+e.message, 'error'); }
+}
+async function togglePmpItem(facilityId, itemId, makeActive){
+  await db.collection('pmp_indicators').doc(facilityId).collection('items').doc(itemId).update({active: makeActive});
+  openPmpDefModal(facilityId); reloadPmpFacBody();
+}
+async function changePmpItemLevel(facilityId, itemId, newLevel){
+  try{
+    const upd = {level:newLevel};
+    if(newLevel==='unit'){
+      const u = prompt('Nama unit untuk indikator ini (mis. Poli Umum):');
+      if(!u || !u.trim()) return;
+      upd.unitName = u.trim();
+    }
+    await db.collection('pmp_indicators').doc(facilityId).collection('items').doc(itemId).update(upd);
+    openPmpDefModal(facilityId); reloadPmpFacBody();
+  }catch(e){ toast('Gagal: '+e.message, 'error'); }
+}
+
 </script>
 </body>
 </html>
