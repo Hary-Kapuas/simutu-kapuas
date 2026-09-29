@@ -145,6 +145,12 @@ const SEED_FACILITIES = ["LUPAK","TAMBAN BARU","TAMBAN CATUR","ANJIR SERAPAT","S
   "TERUSAN TENGAH","PULAU KUPANG","BASARANG","BARIMBA","SEI TATAS","PALINGKAU","PALANGKAU","DADAHUP","TALEKUNG PUNAI",
   "MANDOMAI","MANTANGAI","DANAU RAWAH","LAMUNTI","TIMPAH","PUJON","JANGKANG","SEI HANYO","SEI PINANG","BUKIT BATU"];
 const MONTHS = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const ILP_KLASTER = ['Klaster 1 - Manajemen','Klaster 2 - Ibu dan Anak','Klaster 3 - Usia Dewasa dan Lanjut Usia','Klaster 4 - Penanggulangan Penyakit Menular','Lintas Klaster'];
+/* Kepuasan Pengguna Layanan dilaporkan per semester (Juni & Desember), bukan tiap bulan */
+function isSemesterIndicator(indId){ return indId==='kepuasan'; }
+function isSemesterMonth(period){ const m = Number(String(period).split('-')[1]); return m===6 || m===12; }
+function inmEffectiveIndicators(period){ return INM.filter(i=> !isSemesterIndicator(i.id) || isSemesterMonth(period)); }
+
 const MONTHS_FULL = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
 /* ---- IKP (Insiden Keselamatan Pasien) ---- */
@@ -719,7 +725,7 @@ const DINKES_TABS = [
   {id:'ringkasan', label:'Ringkasan', icon:'◎'},
   {id:'analisis', label:'Analisis & RTL', icon:'✦'},
   {id:'inm', label:'Data INM', icon:'▤'},
-  {id:'pmp', label:'Data PMP', icon:'▥'},
+  {id:'pmp', label:'Indikator Mutu Prioritas', icon:'▥'},
   {id:'ikp', label:'Insiden (IKP)', icon:'⚑'},
   {id:'ppi', label:'PPI', icon:'⛨'},
   {id:'audit', label:'Audit Internal', icon:'⌘'},
@@ -762,7 +768,8 @@ function viewRingkasan(){
   if(!ringkasanData && !ringkasanLoading){ loadRingkasan(); }
   const total = STATE.facilities.filter(f=>f.active!==false).length;
   const reported = ringkasanData ? ringkasanData.filter(r=>r.reportedCount>0).length : 0;
-  const complete = ringkasanData ? ringkasanData.filter(r=>r.reportedCount===INM.length).length : 0;
+  const effN = inmEffectiveIndicators(STATE.period).length;
+  const complete = ringkasanData ? ringkasanData.filter(r=>r.reportedCount===effN).length : 0;
   let avgRows = '';
   if(ringkasanData){
     avgRows = INM.map(ind=>{
@@ -781,7 +788,7 @@ function viewRingkasan(){
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:22px;">
       ${statCard('Fasilitas Aktif', total, 'Puskesmas &amp; Klinik terdaftar')}
       ${statCard('Sudah Lapor — '+periodLabel(STATE.period), ringkasanData? reported+' / '+total : '…', 'Minimal 1 indikator INM')}
-      ${statCard('Lapor Lengkap (6/6)', ringkasanData? complete+' / '+total : '…', 'Seluruh indikator INM terisi')}
+      ${statCard('Lapor Lengkap ('+effN+'/'+effN+')', ringkasanData? complete+' / '+total : '…', 'Seluruh indikator INM wajib bulan ini terisi'+(isSemesterMonth(STATE.period)?' (termasuk Kepuasan)':' (Kepuasan hanya wajib Juni & Desember)'))}
       ${statCard('Terlambat Lapor', ringkasanData? ringkasanData.filter(r=>{ const t=timelinessInfo(STATE.period, r.submittedAt, r.exists && r.reportedCount>0); return t.code==='late'||t.code==='missing-late'; }).length+' / '+total : '…', 'Dikirim setelah batas / belum lapor lewat batas')}
     </div>
     <div class="card" style="padding:18px; margin-bottom:22px;">
@@ -794,6 +801,13 @@ function viewRingkasan(){
         <tbody>${avgRows || `<tr><td colspan="4" style="color:var(--ink-soft);">Memuat data…</td></tr>`}</tbody>
       </table></div>
       ${printExportToolbar('Ringkasan Mutu Puskesmas', periodLabel(STATE.period), '#ringkasan-table', 'Ringkasan_'+STATE.period+'.xlsx', null, periodLabel(STATE.period))}
+    </div>
+    <div class="card" style="padding:18px; margin-bottom:22px;">
+      <h3 class="serif" style="margin:0 0 12px; font-size:16px;">Pilih Fasilitas</h3>
+      <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 12px;">Klik nama Puskesmas/Klinik untuk langsung melihat analisis, capaian, dan seluruh data mutu fasilitas tersebut.</p>
+      <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        ${STATE.facilities.filter(f=>f.active!==false).map(f=>`<button class="btn btn-secondary" style="padding:7px 13px; font-size:12.5px;" onclick="STATE.selectedFacilityId='${f.id}'; STATE.dinkesTab='analisis'; renderDinkesShell();">${esc(facilityTypeLabel(f.type)||'')} ${esc(f.name)}</button>`).join('')}
+      </div>
     </div>
     <div class="card" style="padding:18px; margin-bottom:22px;">
       <h3 class="serif" style="margin:0 0 12px; font-size:16px;">Ringkasan Seluruh Modul PMKP</h3>
@@ -1090,6 +1104,13 @@ function viewDinkesIKP(){
     }).join('');
   }
   const content = `
+    <div class="card" style="padding:16px; margin-bottom:16px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+        <div style="font-weight:700; font-size:13.5px;">Kepatuhan Pelaporan IKP — ${esc(periodLabel(STATE.period))}</div>
+        ${periodPicker()}
+      </div>
+      <div id="ikp-kepatuhan-body"><div class="spinner"></div></div>
+    </div>
     <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
       <select style="width:auto; min-width:200px;" onchange="ikpFilterFacility=this.value; renderDinkesShell();">${facOpts}</select>
       <select style="width:auto; min-width:160px;" onchange="ikpFilterGrading=this.value; renderDinkesShell();">${gradingOpts}</select>
@@ -1104,7 +1125,26 @@ function viewDinkesIKP(){
     </div>
     ${printExportToolbar('Laporan Insiden Keselamatan Pasien', 'Rekap seluruh fasilitas', '#ikp-dinkes-table', 'IKP.xlsx', ikpFilterFacility!=='all'?ikpFilterFacility:null, null)}
   `;
+  setTimeout(()=>loadIkpKepatuhan(STATE.period), 30);
   return ['Insiden Keselamatan Pasien (IKP)', 'Rekap pelaporan insiden seluruh fasilitas', content];
+}
+async function loadIkpKepatuhan(period){
+  const el = document.getElementById('ikp-kepatuhan-body'); if(!el) return;
+  try{
+    const facs = STATE.facilities.filter(f=>f.active!==false);
+    const w = anWindowSingle(period);
+    const [incSnap, nihilSnap] = await Promise.all([db.collection('ikp_reports').get(), db.collection('ikp_nihil').where('period','==',period).get()]);
+    const incByFac = {}; incSnap.docs.forEach(d=>{ const it = d.data(); if(it.tanggal>=w.start && it.tanggal<=w.end){ incByFac[it.facilityId] = (incByFac[it.facilityId]||0)+1; } });
+    const nihilFacs = new Set(nihilSnap.docs.map(d=>d.data().facilityId));
+    const lapor = [], nihil = [], belum = [];
+    facs.forEach(f=>{ if(incByFac[f.id]) lapor.push(f.name+' ('+incByFac[f.id]+')'); else if(nihilFacs.has(f.id)) nihil.push(f.name); else belum.push(f.name); });
+    if(document.getElementById('ikp-kepatuhan-body') !== el) return;
+    el.innerHTML = `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px;">
+      <div><span class="pill pill-ok">Ada insiden: ${lapor.length}</span><div style="font-size:11.5px; color:var(--ink-soft); margin-top:4px; white-space:normal;">${esc(lapor.join(', ')||'—')}</div></div>
+      <div><span class="pill pill-ok">Nihil: ${nihil.length}</span><div style="font-size:11.5px; color:var(--ink-soft); margin-top:4px; white-space:normal;">${esc(nihil.join(', ')||'—')}</div></div>
+      <div><span class="pill pill-warn">Belum lapor: ${belum.length}</span><div style="font-size:11.5px; color:var(--ink-soft); margin-top:4px; white-space:normal;">${esc(belum.join(', ')||'—')}</div></div>
+    </div>`;
+  }catch(e){ if(el) el.innerHTML = `<span style="color:var(--rust); font-size:12.5px;">Gagal memuat: ${esc(e.message)}</span>`; }
 }
 async function loadAllIkp(){
   const snap = await db.collection('ikp_reports').orderBy('tanggal','desc').limit(500).get().catch(()=>db.collection('ikp_reports').get());
@@ -1451,7 +1491,7 @@ function afterRenderHook(){
 /* ============================= FACILITY SHELL ============================= */
 const FAC_TABS = [
   {id:'inm', label:'Input INM', icon:'▤'},
-  {id:'pmp', label:'Input PMP', icon:'▥'},
+  {id:'pmp', label:'Indikator Mutu Prioritas', icon:'▥'},
   {id:'ikp', label:'Lapor Insiden (IKP)', icon:'⚑'},
   {id:'ppi', label:'PPI', icon:'⛨'},
   {id:'audit', label:'Audit Internal', icon:'⌘'},
@@ -1564,7 +1604,7 @@ function viewFacPmp(fac){
   const content = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
       ${periodPicker()}
-      <button class="btn btn-secondary" onclick="openPmpDefModal('${facilityId}')">⚙ Kelola Indikator Lokal</button>
+      <button class="btn btn-secondary" onclick="openPmpDefModal('${facilityId}')">⚙ Kelola Indikator Mutu Prioritas</button>
     </div>
     <div id="pmp-fac-body"><div class="spinner"></div></div>
     ${printExportToolbar('Laporan PMP (Mutu Lokal/Prioritas)', fac?fac.name:'', '#pmp-fac-body', 'PMP_'+STATE.period+'.xlsx', facilityId, periodLabel(STATE.period))}
@@ -1577,7 +1617,7 @@ async function openPmpDefModal(facilityId){
   const snap = await db.collection('pmp_indicators').doc(facilityId).collection('items').get();
   const items = snap.docs.map(d=>({id:d.id, ...d.data()}));
   document.getElementById('pmp-def-modal').innerHTML = modalWrap(`
-    <h3 class="serif" style="margin:0 0 14px;">Kelola Indikator Mutu Lokal</h3>
+    <h3 class="serif" style="margin:0 0 14px;">Kelola Indikator Mutu Prioritas</h3>
     <div style="max-height:260px; overflow-y:auto; margin-bottom:14px;">
       ${items.length? items.map(it=>`<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--line-soft);">
         <div>
@@ -1620,11 +1660,18 @@ function viewFacIkp(fac){
   const facilityId = fac ? fac.id : STATE.profile.facilityId;
   const today = todayISO();
   const content = `
+    <div class="card" style="padding:16px; margin-bottom:18px; max-width:640px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:4px;">
+        <div style="font-weight:700; font-size:13.5px;">Pelaporan Bulan ${esc(periodLabel(STATE.period))}</div>
+        ${periodPicker()}
+      </div>
+      <p style="font-size:12.5px; color:var(--ink-soft); margin:4px 0 10px;">Kalau tidak ada insiden sama sekali bulan ini, tetap lapor sebagai <strong>Nihil</strong> — supaya Dinkes tahu Bapak/Ibu sudah mengecek, bukan lupa lapor.</p>
+      <div id="ikp-nihil-status"><div class="spinner"></div></div>
+    </div>
     <div class="card" style="padding:18px; margin-bottom:22px; max-width:640px;">
-      <h3 class="serif" style="margin:0 0 14px; font-size:16px;">Lapor Insiden Baru</h3>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
-        <div><label>Tanggal Kejadian</label><input type="date" id="ikp-tanggal" value="${today}"></div>
-        <div><label>Tempat / Unit</label><input type="text" id="ikp-unit" placeholder="Contoh: Poli Umum, Ruang Bersalin"></div>
+        <div><label>Tanggal Laporan</label><input type="date" id="ikp-tanggal" value="${today}"></div>
+        <div><label>Klaster / Unit</label><select id="ikp-unit">${ILP_KLASTER.map(k=>`<option>${esc(k)}</option>`).join('')}</select></div>
       </div>
       <label>Laporan Kejadian</label>
       <textarea id="ikp-deskripsi" rows="3" placeholder="Uraikan kronologi kejadian secara singkat dan jelas" style="margin-bottom:12px;"></textarea>
@@ -1650,8 +1697,52 @@ function viewFacIkp(fac){
     <div id="ikp-fac-list"><div class="spinner"></div></div>
     ${printExportToolbar('Laporan Insiden Keselamatan Pasien', fac?fac.name:'', '#ikp-fac-list', 'IKP_'+(fac?fac.name:'')+'.xlsx', facilityId, null)}
   `;
-  setTimeout(()=>{ updateIkpGradingPreview(); loadFacIkpList(facilityId); }, 30);
+  setTimeout(()=>{ updateIkpGradingPreview(); loadFacIkpList(facilityId); loadIkpNihilStatus(facilityId, STATE.period); }, 30);
   return ['Lapor Insiden Keselamatan Pasien', fac?fac.name:'', content];
+}
+async function loadIkpNihilStatus(facilityId, period){
+  const el = document.getElementById('ikp-nihil-status'); if(!el) return;
+  try{
+    const [nihilSnap, incSnap] = await Promise.all([
+      db.collection('ikp_nihil').doc(facilityId+'_'+period).get(),
+      db.collection('ikp_reports').where('facilityId','==',facilityId).get()
+    ]);
+    const w = anWindowSingle(period);
+    const hasIncident = incSnap.docs.some(d=>{ const t = d.data().tanggal; return t && t>=w.start && t<=w.end; });
+    if(nihilSnap.exists){
+      const t = tsToDate(nihilSnap.data().reportedAt);
+      el.innerHTML = `<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span class="pill pill-ok">Nihil dilaporkan${t?' — '+fmtDateID(t):''}</span>
+        <button class="btn btn-ghost no-print" style="padding:4px 8px; font-size:12px;" onclick="cancelIkpNihil('${facilityId}','${period}')">Batalkan</button>
+      </div>`;
+    } else if(hasIncident){
+      el.innerHTML = `<span class="pill pill-warn">Sudah ada insiden dilaporkan bulan ini — tidak perlu lapor Nihil</span>`;
+    } else {
+      el.innerHTML = `<button class="btn btn-secondary" onclick="declareIkpNihil('${facilityId}','${period}')">Tidak Ada Insiden Bulan Ini (Lapor Nihil)</button>`;
+    }
+  }catch(e){ el.innerHTML = `<span style="color:var(--rust); font-size:12.5px;">Gagal memuat status: ${esc(e.message)}</span>`; }
+}
+async function declareIkpNihil(facilityId, period){
+  try{
+    await db.collection('ikp_nihil').doc(facilityId+'_'+period).set({
+      facilityId, period, reportedBy: (STATE.profile&&STATE.profile.name)||STATE.user.email, reportedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('Laporan Nihil tersimpan.');
+    loadIkpNihilStatus(facilityId, period);
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+async function cancelIkpNihil(facilityId, period){
+  if(!confirm('Batalkan laporan Nihil bulan ini?')) return;
+  try{
+    await db.collection('ikp_nihil').doc(facilityId+'_'+period).delete();
+    toast('Laporan Nihil dibatalkan.');
+    loadIkpNihilStatus(facilityId, period);
+  }catch(e){ toast('Gagal membatalkan: '+e.message, 'error'); }
+}
+function anWindowSingle(period){
+  const parts = String(period).split('-').map(Number), y = parts[0], m = parts[1];
+  const dim = new Date(y, m, 0).getDate();
+  return {start: period+'-01', end: period+'-'+String(dim).padStart(2,'0')};
 }
 function updateIkpGradingPreview(){
   const probEl = document.getElementById('ikp-prob'); const dampakEl = document.getElementById('ikp-dampak');
@@ -1754,8 +1845,7 @@ function ppiPajananFormHtml(){
       <div><label>Tanggal Pajanan</label><input type="date" id="pj-tglpajanan" value="${today}"></div>
       <div><label>Tempat Kejadian</label><input type="text" id="pj-tempat"></div>
       <div><label>Unit Kerja Terpajan</label><input type="text" id="pj-unit"></div>
-      <div><label>Nama Tenaga Kesehatan Terpajan</label><input type="text" id="pj-nama"></div>
-      <div><label>Atasan Langsung</label><input type="text" id="pj-atasan"></div>
+      <div><label>Nama Terpajan</label><input type="text" id="pj-nama"></div>
     </div>
     <label>Route Pajanan</label>
     <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
@@ -1803,7 +1893,7 @@ async function submitPpiPajanan(facilityId){
   try{
     const payload = {
       facilityId, tanggalLaporan:g('pj-tgllapor'), tanggalPajanan:g('pj-tglpajanan'), tempatKejadian:g('pj-tempat'), unitKerja:g('pj-unit'),
-      nama:g('pj-nama'), atasanLangsung:g('pj-atasan'), routePajanan:routes, sumberPajanan:sumber, bagianTubuh:g('pj-bagiantubuh'),
+      nama:g('pj-nama'), routePajanan:routes, sumberPajanan:sumber, bagianTubuh:g('pj-bagiantubuh'),
       uraianKejadian:g('pj-uraian'), imunisasiHepB:g('pj-hepb'), alatPelindung:g('pj-apd'), jenisAlatPelindung:g('pj-jenisapd'),
       pertolonganPertama:g('pj-p3k'), tempatPertolongan:g('pj-tempatp3k'), statusPemeriksaan:g('pj-status'),
       namaSumber:g('pj-namasumber'), noRM:g('pj-norm'), ruangRawat:g('pj-ruangrawat'), pemantauanPajanan:g('pj-pemantauan'),
@@ -3128,7 +3218,7 @@ const MIME_BY_EXT = {pdf:'application/pdf', xls:'application/vnd.ms-excel', xlsx
   doc:'application/msword', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ppt:'application/vnd.ms-powerpoint',
   pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', txt:'text/plain', zip:'application/zip'};
 const BUKTI_MODULE_BY_PREFIX = {ikp:'IKP', pj:'PPI-Laporan-Pajanan', chk:'PPI-Daftar-Tilik', ad:'PPI-Audit-Kualitas', f1:'Audit-Hasil-Indikator', tm:'Audit-Temuan',
-  rr:'Risiko-Register', rp:'Risiko-Profil', pm:'Risiko-Pemantauan', mf:'MFK-Register-Risiko', k3p:'K3-Pemetaan', k3r:'K3-Perencanaan', b3:'K3-Inventaris-B3'};
+  rr:'Risiko-Register', rp:'Risiko-Profil', pm:'Risiko-Pemantauan', mf:'MFK-Register-Risiko', k3p:'K3-Pemetaan', k3r:'K3-Perencanaan', b3:'K3-Inventaris-B3', rtl:'RTL-Indikator-Mutu-Prioritas'};
 let __uploadBusy = false;
 
 /* ---------- Perbaikan: nama sheet Excel maks 31 karakter & tanpa karakter terlarang ---------- */
@@ -3237,9 +3327,9 @@ function viewTarget(){
     <div class="card" style="padding:18px; max-width:560px; margin-top:16px;">
       <h3 class="serif" style="margin:0 0 6px; font-size:16px;">Batas Waktu Pelaporan</h3>
       <p style="color:var(--ink-soft); font-size:13px; margin:0 0 14px;">Laporan yang <strong>pertama kali dikirim</strong> setelah batas ini dicatat sebagai <strong>Terlambat</strong> (tetap bisa diisi, hanya diberi tanda).</p>
-      <label>Laporan bulanan (INM, PMP Unit, Daftar Tilik PPI, Inventaris B3) — tanggal batas pada bulan berikutnya</label>
+      <label>Laporan bulanan (INM, Indikator Mutu Prioritas Pelayanan, Daftar Tilik PPI, Inventaris B3) — tanggal batas pada bulan berikutnya</label>
       <input type="number" min="1" max="28" id="dl-bulanan" value="${Number(dl.hariBulanan)||10}" style="max-width:120px; margin-bottom:14px;">
-      <label>Laporan tahunan (PMP Puskesmas/Klinik) — batas pada tahun berikutnya</label>
+      <label>Laporan tahunan (Indikator Mutu Prioritas Puskesmas) — batas pada tahun berikutnya</label>
       <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
         <input type="number" min="1" max="31" id="dl-hari-tahunan" value="${Number(dl.hariTahunan)||31}" style="max-width:100px;">
         <select id="dl-bulan-tahunan" style="max-width:180px;">${monthOpts}</select>
@@ -3293,6 +3383,20 @@ function facilityFolderLabel(facilityId){
 function buildUploadMeta(facilityId, moduleName, period, label){
   return {folderPath:[facilityFolderLabel(facilityId), moduleName, period||currentPeriod()], label:String(label||'').replace(/[^\w\- ]+/g,'').trim().substring(0,30)};
 }
+/* Sebagian sistem lain (SIMPUS, dsb.) "mengekspor Excel" dengan menyimpan tabel HTML biasa
+   diberi nama .xls/.xlsx. Google Sheets memaksa membacanya sebagai file Excel asli sehingga
+   tampil berantakan. Kalau terdeteksi, ganti jadi .html supaya terbuka rapi sebagai halaman web. */
+async function fixMislabeledHtmlFile(file){
+  if(!/\.(xlsx?|csv)$/i.test(file.name)) return file;
+  try{
+    const head = await file.slice(0, 400).text();
+    if(/^\s*(<!doctype html|<html|<table)/i.test(head)){
+      const newName = file.name.replace(/\.(xlsx?|csv)$/i, '') + '.html';
+      return new File([file], newName, {type:'text/html'});
+    }
+  }catch(e){ /* abaikan, unggah apa adanya */ }
+  return file;
+}
 async function uploadFiles(fileList, meta, statusEl){
   if(__uploadBusy){ toast('Masih ada unggahan yang berjalan, mohon tunggu.', 'error'); return null; }
   __uploadBusy = true;
@@ -3302,6 +3406,7 @@ async function uploadFiles(fileList, meta, statusEl){
       let f = files[i];
       if(statusEl) statusEl.textContent = 'Mengunggah '+(i+1)+'/'+files.length+': '+f.name+' …';
       f = await compressImage(f);
+      f = await fixMislabeledHtmlFile(f);
       if(f.size > MAX_UPLOAD_BYTES){ toast('File "'+f.name+'" melebihi batas 10MB.', 'error'); if(statusEl) statusEl.textContent=''; return null; }
       const base64 = await fileToBase64(f);
       const resp = await fetch(UPLOAD_SCRIPT_URL, {method:'POST', body: JSON.stringify({fileBase64:base64, fileName:f.name, mimeType:guessMime(f), folderPath:meta.folderPath, filePrefix:meta.label||''})});
@@ -3497,14 +3602,14 @@ async function loadFacInm(facilityId, period){
         const files = bukti[ind.id]||[]; const vs = verifState(verif[ind.id], v.num, v.den, files.length);
         return `<tr>
           <td style="white-space:normal;">
-            <div style="font-weight:600;">${esc(ind.name)}</div>
+            <div style="font-weight:600;">${esc(ind.name)}${isSemesterIndicator(ind.id)?` <span style="font-weight:400; font-size:11px; color:var(--ink-soft);">(wajib Juni &amp; Desember)</span>`:''}</div>
             <div style="font-size:11.5px; color:var(--ink-soft); margin-top:2px;">N: ${esc(ind.numLabel)}<br>D: ${esc(ind.denLabel)}</div>
           </td>
           <td><input type="number" min="0" style="width:90px;" value="${v.num??''}" data-inm-num="${ind.id}"></td>
           <td><input type="number" min="0" style="width:90px;" value="${v.den??''}" data-inm-den="${ind.id}"></td>
           <td class="inm-pct-${ind.id}" style="font-weight:700;">${fmtPct(p)}</td>
           <td>${t}%</td>
-          <td><span class="pill ${pillClass(p,t)}">${p===null?'Belum diisi':(p>=t?'Tercapai':'Belum tercapai')}</span></td>
+          <td>${isSemesterIndicator(ind.id) && !isSemesterMonth(period) && p===null ? '<span class="pill pill-warn">Tidak wajib bulan ini</span>' : `<span class="pill ${pillClass(p,t)}">${p===null?'Belum diisi':(p>=t?'Tercapai':'Belum tercapai')}</span>`}</td>
           <td>${evidenceCellHtml('inm', ind.id, files, true, 'inm_reports', docId)}</td>
           <td style="white-space:normal; min-width:150px;">${vs.badge}${vs.catatan?`<div style="font-size:11.5px; color:var(--ink-soft); margin-top:3px;">${esc(vs.catatan)}</div>`:''}</td>
         </tr>`;
@@ -3575,10 +3680,10 @@ async function loadDinkesInm(){
   dinkesInmData = {period, rows:results};
   if(STATE.dinkesTab==='inm') renderDinkesShell();
 }
-function inmRowSummary(r){
+function inmRowSummary(r, period){
   const ind = (r.data && r.data.indicators) || {}, bukti = (r.data && r.data.bukti) || {}, verif = (r.data && r.data.verifikasi) || {};
   let withData=0, withBukti=0, ok=0, clar=0, stale=0;
-  INM.forEach(i=>{
+  inmEffectiveIndicators(period||currentPeriod()).forEach(i=>{
     const v = ind[i.id];
     if(v && Number(v.den)>0){
       withData++; const nf = (bukti[i.id]||[]).length; if(nf>0) withBukti++;
@@ -3593,7 +3698,7 @@ function viewDinkesINM(){
   let rows = '';
   if(dinkesInmData && dinkesInmData.period===STATE.period){
     rows = dinkesInmData.rows.map(r=>{
-      const s = inmRowSummary(r);
+      const s = inmRowSummary(r, dinkesInmData.period);
       const t = timelinessInfo(dinkesInmData.period, r.data && r.data.submittedAt, r.exists && s.withData>0);
       const buktiCell = s.withData ? `<span class="pill ${s.withBukti<s.withData?'pill-warn':'pill-ok'}">${s.withBukti}/${s.withData} indikator</span>` : '—';
       let verifCell = '—';
@@ -3653,7 +3758,7 @@ async function loadRingkasan(){
     INM.forEach(ind=>{
       const v = data && data.indicators && data.indicators[ind.id];
       values[ind.id] = v ? pct(v.num, v.den) : null;
-      if(v && Number(v.den)>0) reportedCount++;
+      if(v && Number(v.den)>0 && (!isSemesterIndicator(ind.id) || isSemesterMonth(STATE.period))) reportedCount++;
     });
     return {facilityId:f.id, name:f.name, values, reportedCount, exists:doc.exists, submittedAt:data&&data.submittedAt};
   }));
@@ -3662,7 +3767,7 @@ async function loadRingkasan(){
 }
 function viewKepatuhan(){
   if(!ringkasanData){ loadRingkasan(); }
-  const total = INM.length;
+  const total = inmEffectiveIndicators(STATE.period).length;
   const buckets = {}; for(let i=0;i<=total;i++) buckets[i]=[];
   if(ringkasanData) ringkasanData.forEach(r=>{ buckets[r.reportedCount].push(r.name); });
   const rows = [];
@@ -3708,7 +3813,7 @@ function viewKepatuhan(){
 
 /* ---------- PMP: dipisah Unit (bulanan) vs Puskesmas/Klinik (tahunan) ---------- */
 function pmpLevelOf(it){ return it.level || 'unit'; }
-function pmpLevelName(level){ return level==='fasyankes' ? 'Mutu Prioritas Puskesmas/Klinik (Tahunan)' : 'Mutu Prioritas Unit (Bulanan)'; }
+function pmpLevelName(level){ return level==='fasyankes' ? 'Indikator Mutu Prioritas Puskesmas (Tahunan)' : 'Indikator Mutu Prioritas Pelayanan (Klaster/Unit) — Bulanan'; }
 function pmpPeriodFor(level){
   if(level==='fasyankes'){ if(!STATE.pmpYear) STATE.pmpYear = new Date().getFullYear(); return String(STATE.pmpYear); }
   return STATE.period;
@@ -3722,7 +3827,7 @@ function pmpPeriodControl(level){
   return periodPicker();
 }
 function pmpLevelTabs(active, isDinkes){
-  const tabs = [{id:'unit', label:'Mutu Prioritas Unit (Bulanan)'}, {id:'fasyankes', label:'Mutu Prioritas Puskesmas/Klinik (Tahunan)'}];
+  const tabs = [{id:'unit', label:'Indikator Mutu Prioritas Pelayanan (Klaster/Unit)'}, {id:'fasyankes', label:'Indikator Mutu Prioritas Puskesmas'}];
   return `<div style="display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;">${tabs.map(t=>`
     <button class="btn ${active===t.id?'btn-primary':'btn-secondary'}" style="padding:7px 13px; font-size:13px;"
       onclick="${isDinkes?`STATE.dinkesPmpLevel='${t.id}'; renderDinkesShell();`:`STATE.facPmpLevel='${t.id}'; renderFacilityShell();`}">${t.label}</button>`).join('')}</div>`;
@@ -3734,13 +3839,13 @@ function viewFacPmp(fac){
   const content = `${pmpLevelTabs(level, false)}
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
       ${pmpPeriodControl(level)}
-      <button class="btn btn-secondary" onclick="openPmpDefModal('${facilityId}')">⚙ Kelola Indikator Lokal</button>
+      <button class="btn btn-secondary" onclick="openPmpDefModal('${facilityId}')">⚙ Kelola Indikator Mutu Prioritas</button>
     </div>
     <div id="pmp-fac-body"><div class="spinner"></div></div>
     ${printExportToolbar('Laporan PMP — '+pmpLevelName(level), fac?fac.name:'', '#pmp-fac-body', 'PMP_'+level+'_'+period+'.xlsx', facilityId, perLbl)}
     <div id="pmp-def-modal"></div>`;
   loadPmpForFacility(facilityId, period, 'pmp-fac-body', true, level);
-  return ['Input PMP (Mutu Lokal/Prioritas)', 'Unit dilaporkan tiap bulan; Puskesmas/Klinik disusun tahunan', content];
+  return ['Indikator Mutu Prioritas', pmpLevelName(level), content];
 }
 function viewDinkesPMP(){
   const level = STATE.dinkesPmpLevel || 'unit'; const period = pmpPeriodFor(level);
@@ -3757,7 +3862,7 @@ function viewDinkesPMP(){
     ${printExportToolbar('Laporan PMP — '+pmpLevelName(level), '', '#pmp-dinkes-body', 'PMP_'+level+'_'+period+'.xlsx', fid, perLbl)}
   `;
   if(fid) loadPmpForFacility(fid, period, 'pmp-dinkes-body', false, level);
-  return ['Data PMP (Mutu Lokal/Prioritas)', 'Mutu Prioritas Unit (bulanan) dan Puskesmas/Klinik (tahunan)', content];
+  return ['Indikator Mutu Prioritas', pmpLevelName(level), content];
 }
 async function loadPmpForFacility(facilityId, period, targetElId, editable, level){
   level = level || 'unit';
@@ -3771,17 +3876,18 @@ async function loadPmpForFacility(facilityId, period, targetElId, editable, leve
   const el = document.getElementById(targetElId);
   if(!el) return;
   if(items.length===0){
-    el.innerHTML = `<div class="card" style="padding:24px; text-align:center; color:var(--ink-soft);">Belum ada indikator ${pmpLevelName(level)} yang didefinisikan${editable?'. Klik "Kelola Indikator Lokal" untuk menambahkan.':' oleh fasilitas ini.'}</div>`;
+    el.innerHTML = `<div class="card" style="padding:24px; text-align:center; color:var(--ink-soft);">Belum ada ${pmpLevelName(level)} yang didefinisikan${editable?'. Klik "Kelola Indikator Mutu Prioritas" untuk menambahkan.':' oleh fasilitas ini.'}</div>`;
     return;
   }
   const unitCol = level==='unit';
   el.innerHTML = deadlineBannerHtml(period, rd.submittedAt, reportDoc.exists) + `<div class="card scrollx" style="padding:4px;">
     <table>
-      <thead><tr>${unitCol?'<th>Unit</th>':''}<th style="min-width:200px;">Indikator Mutu Lokal</th><th>Target</th><th>Numerator</th><th>Denominator</th><th>Capaian</th><th>Status</th><th>Bukti Dukung</th><th>Verifikasi Dinkes</th></tr></thead>
+      <thead><tr>${unitCol?'<th>Unit</th>':''}<th style="min-width:200px;">Indikator Mutu Lokal</th><th>Target</th><th>Numerator</th><th>Denominator</th><th>Capaian</th><th>Status</th><th>Bukti Dukung</th><th>Rencana Tindak Lanjut</th>${editable?'<th></th>':''}<th>Verifikasi Dinkes</th></tr></thead>
       <tbody>
       ${items.map(it=>{
         const v = values[it.id]||{}; const p = pct(v.num, v.den); const tgt = it.target!=null ? it.target : 100;
         const files = bukti[it.id]||[]; const vs = verifState(verif[it.id], v.num, v.den, files.length);
+        const rtlNameEsc = esc(it.name).replace(/'/g,"\\'");
         return `<tr>
           ${unitCol?`<td style="font-weight:600;">${esc(it.unitName||'—')}</td>`:''}
           <td id="pmp-name-${it.id}" style="white-space:normal;">${esc(it.name)}</td>
@@ -3792,12 +3898,19 @@ async function loadPmpForFacility(facilityId, period, targetElId, editable, leve
           <td class="pmp-pct-${it.id}" style="font-weight:700;">${fmtPct(p)}</td>
           <td><span class="pill ${pillClass(p,tgt)}">${p===null?'Belum diisi':(p>=tgt?'Tercapai':'Belum tercapai')}</span></td>
           <td>${evidenceCellHtml('pmp', it.id, files, editable, 'pmp_reports', docId)}</td>
+          <td class="no-print"><button class="btn btn-ghost" style="padding:3px 7px; font-size:11.5px;" onclick="openPmpRtlModal('${facilityId}','${it.id}','${rtlNameEsc}',${editable?'false':'true'})">${editable?'Kelola RTL':'Lihat RTL'}</button></td>
+          ${editable?`<td class="no-print" style="white-space:nowrap;">
+              <button class="btn btn-ghost" style="padding:3px 7px; font-size:11.5px; display:block; margin-bottom:3px;" onclick="editPmpIndicatorDef('${facilityId}','${it.id}')">Ubah</button>
+              <button class="btn btn-ghost" style="padding:3px 7px; font-size:11.5px; color:var(--rust); display:block;" onclick="clearPmpIndicatorValue('${facilityId}','${period}','${it.id}','${level}')">Hapus Data</button>
+            </td>`:''}
           <td style="white-space:normal; min-width:150px;">${vs.badge}${vs.catatan?`<div style="font-size:11.5px; color:var(--ink-soft); margin-top:3px;">${esc(vs.catatan)}</div>`:''}</td>
         </tr>`;
       }).join('')}
       </tbody>
     </table>
   </div>
+  <div id="pmp-editdef-modal"></div>
+  <div id="rtl-modal-host"></div>
   ${editable
     ? `<div id="pmp-upload-status" style="font-size:12.5px; color:var(--ink-soft); margin-top:12px; min-height:18px;"></div>
        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"><button class="btn btn-primary" id="pmp-save-btn" onclick="savePmpReport('${facilityId}','${period}','${level}')">Simpan Data PMP</button>${reportDoc.exists && !rd.verifiedBy ? `<button class="btn btn-danger no-print" onclick="deleteReportFac('pmp_reports','${facilityId}','${period}','${level}')">Hapus Laporan Periode Ini</button>` : ''}</div>${reportDoc.exists && rd.verifiedBy ? `<div class="no-print" style="font-size:12px; color:var(--ink-soft); margin-top:10px;">Laporan ini sudah ditinjau Dinkes sehingga tidak bisa dihapus oleh fasilitas. Anda tetap bisa memperbaiki angka/bukti lalu menyimpan ulang, atau meminta Dinkes menghapusnya.</div>` : ''}`
@@ -3878,7 +3991,7 @@ async function openPmpDefModal(facilityId){
   const items = snap.docs.map(d=>({id:d.id, ...d.data()}));
   const defLevel = STATE.facPmpLevel || 'unit';
   document.getElementById('pmp-def-modal').innerHTML = modalWrap(`
-    <h3 class="serif" style="margin:0 0 14px;">Kelola Indikator Mutu Lokal</h3>
+    <h3 class="serif" style="margin:0 0 14px;">Kelola Indikator Mutu Prioritas</h3>
     <div style="max-height:260px; overflow-y:auto; margin-bottom:14px;">
       ${items.length ? items.map(it=>{
         const lv = pmpLevelOf(it);
@@ -3893,14 +4006,14 @@ async function openPmpDefModal(facilityId){
       }).join('') : '<p style="color:var(--ink-soft); font-size:13px;">Belum ada indikator.</p>'}
     </div>
     <div style="border-top:1px solid var(--line); padding-top:14px;">
-      <label>Jenis Mutu Prioritas</label>
+      <label>Jenis Indikator Mutu Prioritas</label>
       <select id="pmp-new-level" onchange="toggleUnitField()" style="margin-bottom:10px;">
-        <option value="unit" ${defLevel==='unit'?'selected':''}>Mutu Prioritas Unit (dilaporkan bulanan)</option>
-        <option value="fasyankes" ${defLevel==='fasyankes'?'selected':''}>Mutu Prioritas Puskesmas/Klinik (disusun tahunan)</option>
+        <option value="unit" ${defLevel==='unit'?'selected':''}>Indikator Mutu Prioritas Pelayanan (Klaster/Unit) — dilaporkan bulanan</option>
+        <option value="fasyankes" ${defLevel==='fasyankes'?'selected':''}>Indikator Mutu Prioritas Puskesmas — disusun tahunan</option>
       </select>
       <div id="pmp-new-unit-wrap" style="display:${defLevel==='unit'?'block':'none'};">
-        <label>Nama Unit</label>
-        <input id="pmp-new-unit" placeholder="Contoh: Poli Umum, Farmasi, Laboratorium" style="margin-bottom:10px;">
+        <label>Klaster / Unit</label>
+        <select id="pmp-new-unit" style="margin-bottom:10px;">${ILP_KLASTER.map(k=>`<option>${esc(k)}</option>`).join('')}</select>
       </div>
       <label>Nama Indikator Baru</label>
       <input id="pmp-new-name" placeholder="Contoh: Kepatuhan Waktu Tunggu Rawat Jalan" style="margin-bottom:10px;">
@@ -3936,9 +4049,11 @@ async function changePmpItemLevel(facilityId, itemId, newLevel){
   try{
     const upd = {level:newLevel};
     if(newLevel==='unit'){
-      const u = prompt('Nama unit untuk indikator ini (mis. Poli Umum):');
-      if(!u || !u.trim()) return;
-      upd.unitName = u.trim();
+      const list = ILP_KLASTER.map((k,i)=>(i+1)+'. '+k).join('\n');
+      const u = prompt('Pilih Klaster/Unit untuk indikator ini, ketik nomornya:\n'+list);
+      const idx = Number(u)-1;
+      if(!u || !ILP_KLASTER[idx]) return;
+      upd.unitName = ILP_KLASTER[idx];
     }
     await db.collection('pmp_indicators').doc(facilityId).collection('items').doc(itemId).update(upd);
     openPmpDefModal(facilityId); reloadPmpFacBody();
@@ -3955,10 +4070,10 @@ async function changePmpItemLevel(facilityId, itemId, newLevel){
    ===================================================================== */
 const MODUL_LABEL = {ikp_reports:'IKP', ppi_pajanan:'PPI — Laporan Pajanan', ppi_checklist:'PPI — Daftar Tilik', ppi_audit:'PPI — Audit Kualitas',
   audit_form1:'Audit — Hasil Indikator', audit_temuan:'Audit — Temuan', risk_register:'Risiko — Register', risk_profil:'Risiko — Profil', risk_pemantauan:'Risiko — Pemantauan',
-  mfk_register:'MFK — Register Risiko', k3_pemetaan:'K3 — Pemetaan', k3_perencanaan:'K3 — Perencanaan', k3_b3:'K3 — Inventaris B3', inm_reports:'INM', pmp_reports:'PMP'};
+  mfk_register:'MFK — Register Risiko', k3_pemetaan:'K3 — Pemetaan', k3_perencanaan:'K3 — Perencanaan', k3_b3:'K3 — Inventaris B3', inm_reports:'INM', pmp_reports:'Indikator Mutu Prioritas', pmp_rtl:'RTL Indikator Mutu Prioritas'};
 const BUKTI_MODULE_BY_COLLECTION = {ikp_reports:'IKP', ppi_pajanan:'PPI-Laporan-Pajanan', ppi_checklist:'PPI-Daftar-Tilik', ppi_audit:'PPI-Audit-Kualitas',
   audit_form1:'Audit-Hasil-Indikator', audit_temuan:'Audit-Temuan', risk_register:'Risiko-Register', risk_profil:'Risiko-Profil', risk_pemantauan:'Risiko-Pemantauan',
-  mfk_register:'MFK-Register-Risiko', k3_pemetaan:'K3-Pemetaan', k3_perencanaan:'K3-Perencanaan', k3_b3:'K3-Inventaris-B3'};
+  mfk_register:'MFK-Register-Risiko', k3_pemetaan:'K3-Pemetaan', k3_perencanaan:'K3-Perencanaan', k3_b3:'K3-Inventaris-B3', pmp_rtl:'RTL-Indikator-Mutu-Prioritas'};
 
 function recordSummary(collection, d){
   const cut = (s,n)=>String(s||'').substring(0,n);
@@ -3967,10 +4082,84 @@ function recordSummary(collection, d){
     ppi_audit: x=>[x.tanggal, x.ruang], audit_form1: x=>[x.tanggal, cut(x.indikator,60)], audit_temuan: x=>[x.tanggal, cut(x.temuan,60)],
     risk_register: x=>[x.kodeRisiko, cut(x.risiko,60)], risk_profil: x=>[x.kodeRisiko, cut(x.risikoPrioritas,60)], risk_pemantauan: x=>[x.kodeRisiko, x.trendRisiko],
     mfk_register: x=>[x.unitKerja, cut(x.risiko,60)], k3_pemetaan: x=>[x.klaster, x.ruangPelayanan], k3_perencanaan: x=>[x.klaster, cut(x.kegiatan,60)],
-    k3_b3: x=>[x.bulan, x.namaBahan], inm_reports: x=>['Periode '+x.period], pmp_reports: x=>['Periode '+x.period+(x.level==='fasyankes'?' (Tahunan)':'')]
+    k3_b3: x=>[x.bulan, x.namaBahan], inm_reports: x=>['Periode '+x.period], pmp_reports: x=>['Periode '+x.period+(x.level==='fasyankes'?' (Tahunan)':'')],
+    pmp_rtl: x=>[x.indicatorName, cut(x.kegiatan,60)]
   };
   const f = m[collection];
   return (f ? f(d) : [collection]).filter(Boolean).join(' — ');
+}
+/* ---------- Rencana Tindak Lanjut (RTL) per Indikator Mutu Prioritas ---------- */
+function pmpRtlStatusBadge(s){
+  const cls = s==='Selesai' ? 'pill-ok' : (s==='Proses' ? 'pill-warn' : 'pill-bad');
+  return `<span class="pill ${cls}">${esc(s||'Belum')}</span>`;
+}
+async function openPmpRtlModal(facilityId, indicatorId, indicatorName, isDinkesView){
+  const old = document.getElementById('rtl-modal-host'); if(old) old.innerHTML='';
+  const host = document.getElementById('rtl-modal-host') || (()=>{ const d=document.createElement('div'); d.id='rtl-modal-host'; document.body.appendChild(d); return d; })();
+  host.innerHTML = modalWrap('<div class="spinner"></div>');
+  let items = [];
+  try{
+    const snap = await db.collection('pmp_rtl').where('facilityId','==',facilityId).where('indicatorId','==',indicatorId).get()
+      .catch(()=>db.collection('pmp_rtl').where('facilityId','==',facilityId).get());
+    items = snap.docs.map(d=>({id:d.id, ...d.data()})).filter(x=>x.indicatorId===indicatorId);
+    items.sort((a,b)=>{ const ta=tsToDate(a.createdAt), tb=tsToDate(b.createdAt); return (tb?tb.getTime():0)-(ta?ta.getTime():0); });
+  }catch(e){ toast('Gagal memuat RTL: '+e.message, 'error'); }
+  const nameSafe = esc(indicatorName).replace(/'/g,"&#39;");
+  const rows = items.map(it=>{
+    const files = buktiFilesOf(it);
+    const canDel = !isDinkesView && !lockedForFacility('pmp_rtl', it);
+    return `<div style="border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+      <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+        <div style="font-weight:600; font-size:13px; white-space:normal;">${esc(it.kegiatan)}</div>
+        ${pmpRtlStatusBadge(it.status)}
+      </div>
+      <div style="font-size:12px; color:var(--ink-soft); margin:4px 0;">PJ: ${esc(it.penanggungJawab||'—')} · Target waktu: ${esc(it.targetWaktu||'—')}</div>
+      ${it.catatan?`<div style="font-size:12px; margin-bottom:4px; white-space:normal;">${esc(it.catatan)}</div>`:''}
+      <div style="font-size:12px;">${files.length? files.map((f,i)=>`<a href="${esc(f.url)}" target="_blank" rel="noopener">${files.length>1?'Bukti '+(i+1):'Bukti pelaksanaan'}</a>`).join(' · ') : '<span style="color:var(--ink-soft);">Belum ada bukti pelaksanaan</span>'}</div>
+      <div style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        ${verifikasiBadgeHtml(it.statusVerifikasi)}
+        ${isDinkesView?`<button class="btn btn-ghost" style="padding:3px 8px; font-size:11.5px;" onclick="openVerifikasiModal('pmp_rtl','${it.id}', ()=>openPmpRtlModal('${facilityId}','${indicatorId}','${nameSafe}',true))">Verifikasi</button>`:''}
+        ${canDel?`<button class="btn btn-ghost" style="padding:3px 8px; font-size:11.5px; color:var(--rust);" onclick="deleteRecordWithLog('pmp_rtl','${it.id}', ()=>openPmpRtlModal('${facilityId}','${indicatorId}','${nameSafe}',false))">Hapus</button>`:''}
+      </div>
+    </div>`;
+  }).join('') || '<p style="font-size:12.5px; color:var(--ink-soft);">Belum ada rencana tindak lanjut untuk indikator ini.</p>';
+  const form = isDinkesView ? '' : `
+    <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:10px;">
+      <div style="font-weight:700; font-size:12.5px; margin-bottom:8px;">Tambah Rencana Tindak Lanjut</div>
+      <label>Kegiatan</label><textarea id="rtl-kegiatan" rows="2" style="margin-bottom:10px;"></textarea>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+        <div><label>Penanggung Jawab</label><input id="rtl-pj"></div>
+        <div><label>Target Waktu</label><input type="date" id="rtl-waktu"></div>
+      </div>
+      <label>Status</label>
+      <select id="rtl-status" style="margin-bottom:10px;"><option>Belum</option><option>Proses</option><option>Selesai</option></select>
+      <label>Catatan</label><textarea id="rtl-catatan" rows="2" style="margin-bottom:10px;"></textarea>
+      ${newRecordBuktiFieldHtml('rtl')}
+      <button class="btn btn-primary" style="margin-top:6px;" onclick="submitPmpRtl('${facilityId}','${indicatorId}','${nameSafe}')">Simpan Rencana Tindak Lanjut</button>
+    </div>`;
+  host.innerHTML = modalWrap(`
+    <h3 class="serif" style="margin:0 0 4px;">Rencana Tindak Lanjut</h3>
+    <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 12px; white-space:normal;">${esc(indicatorName)}</p>
+    <div style="max-height:340px; overflow-y:auto; margin-bottom:4px;">${rows}</div>
+    ${form}
+    <div style="display:flex; justify-content:flex-end; margin-top:12px;"><button class="btn btn-ghost" onclick="document.getElementById('rtl-modal-host').innerHTML=''">Tutup</button></div>
+  `);
+}
+async function submitPmpRtl(facilityId, indicatorId, indicatorName){
+  const g = id => document.getElementById(id).value.trim();
+  const kegiatan = g('rtl-kegiatan');
+  if(!kegiatan){ toast('Kegiatan wajib diisi.', 'error'); return; }
+  const bukti = await maybeUploadBukti('rtl');
+  if(!bukti.ok) return;
+  try{
+    const payload = { facilityId, indicatorId, indicatorName, kegiatan, penanggungJawab:g('rtl-pj'), targetWaktu:g('rtl-waktu'),
+      status: document.getElementById('rtl-status').value, catatan:g('rtl-catatan'),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid };
+    applyBukti(payload, bukti);
+    await db.collection('pmp_rtl').add(payload);
+    toast('Rencana tindak lanjut tersimpan.');
+    openPmpRtlModal(facilityId, indicatorId, indicatorName, false);
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
 }
 function deletionLogData(collection, id, d, alasan){
   const snapshot = JSON.stringify(d, (k,v)=> (v && typeof v.toDate==='function') ? v.toDate().toISOString() : v).substring(0,60000);
@@ -4170,7 +4359,7 @@ function viewLog(){
    ===================================================================== */
 const AN_LEVEL = {high:{label:'Prioritas Tinggi', cls:'pill-bad', order:0}, mid:{label:'Perlu Perhatian', cls:'pill-warn', order:1},
   info:{label:'Catatan', cls:'pill-warn', order:2}, ok:{label:'Baik', cls:'pill-ok', order:3}};
-const AN_MODUL_ORDER = ['INM','PMP Unit','PMP Puskesmas/Klinik','IKP','PPI','Audit Internal','Manajemen Risiko','MFK & K3','Kepatuhan Pelaporan'];
+const AN_MODUL_ORDER = ['INM','Indikator Mutu Prioritas Pelayanan','Indikator Mutu Prioritas Puskesmas','IKP','PPI','Audit Internal','Manajemen Risiko','MFK & K3','Kepatuhan Pelaporan'];
 const INM_MIN_DEN = {kkt:30, apd:30, identifikasi:30, tb:5, anc:10, kepuasan:30};
 
 /* Basis pengetahuan INM: [kegiatan, penanggung jawab, hari, indikator keberhasilan, min] — min 'mid' = semua yang di bawah target; 'high' = hanya yang jauh di bawah/kronis */
@@ -4284,7 +4473,7 @@ function anTop(list, n){ return list.slice(0,n); }
 function analyzeInm(d){
   const out = [], stats = {filled:0, achieved:0, below:[]};
   const cur = d.inm.cur || null, period = d.period;
-  INM.forEach(ind=>{
+  inmEffectiveIndicators(period).forEach(ind=>{
     const kb = INM_KB[ind.id], t = getTarget(ind.id);
     const v = cur && cur.indicators && cur.indicators[ind.id];
     const den = Number(v&&v.den)||0, num = Number(v&&v.num)||0;
@@ -4351,7 +4540,7 @@ function analyzePmp(d){
   const period = d.period, year = String(period).split('-')[0];
   const unitItems = items.filter(it=>(it.level||'unit')==='unit'), fasItems = items.filter(it=>it.level==='fasyankes');
   if(unitItems.length===0){
-    out.push(anF('PMP Unit','info','Mutu Prioritas Unit belum didefinisikan','Belum ada indikator Mutu Prioritas Unit yang ditetapkan.',[],[anA('Tetapkan minimal satu indikator mutu prioritas untuk tiap unit berdasarkan masalah mutu terbesar di unit tersebut (menu Input PMP > Kelola Indikator Lokal)','PJ Mutu + kepala unit',30,'Indikator mutu prioritas unit terdaftar')]));
+    out.push(anF('Indikator Mutu Prioritas Pelayanan','info','Mutu Prioritas Unit belum didefinisikan','Belum ada indikator Mutu Prioritas Unit yang ditetapkan.',[],[anA('Tetapkan minimal satu indikator mutu prioritas untuk tiap unit berdasarkan masalah mutu terbesar di unit tersebut (menu Input PMP > Kelola Indikator Lokal)','PJ Mutu + kepala unit',30,'Indikator mutu prioritas unit terdaftar')]));
   } else {
     const cur = d.pmp.unitCur;
     unitItems.forEach(it=>{
@@ -4359,11 +4548,11 @@ function analyzePmp(d){
       const curV = cur && cur.values && cur.values[it.id];
       const prevs = (d.pmp.unitPrev||[]).map(x=>{ const v = x.data && x.data.values && x.data.values[it.id]; return v && Number(v.den)>0 ? {period:x.period, p:pct(v.num,v.den)} : null; }).filter(Boolean);
       const tg = it.target!=null ? Number(it.target) : 100;
-      out.push(anGenericIndicator('PMP Unit', nm, tg, curV, prevs[0], prevs[0]?periodLabel(prevs[0].period):'', periodLabel(period), prevs.slice(0,2).map(x=>x.p), false));
+      out.push(anGenericIndicator('Indikator Mutu Prioritas Pelayanan', nm, tg, curV, prevs[0], prevs[0]?periodLabel(prevs[0].period):'', periodLabel(period), prevs.slice(0,2).map(x=>x.p), false));
     });
   }
   if(fasItems.length===0){
-    out.push(anF('PMP Puskesmas/Klinik','info','Mutu Prioritas Puskesmas/Klinik belum didefinisikan','Belum ada indikator Mutu Prioritas Puskesmas/Klinik untuk tahun '+year+'.',[],[anA('Susun indikator Mutu Prioritas Puskesmas/Klinik tahun '+year+' berdasarkan analisis masalah mutu dan hasil INM (menu Input PMP > tab Tahunan)','Kepala Puskesmas/Klinik + Tim Mutu',30,'Dokumen mutu prioritas tahunan tersusun')]));
+    out.push(anF('Indikator Mutu Prioritas Puskesmas','info','Mutu Prioritas Puskesmas/Klinik belum didefinisikan','Belum ada indikator Mutu Prioritas Puskesmas/Klinik untuk tahun '+year+'.',[],[anA('Susun indikator Mutu Prioritas Puskesmas/Klinik tahun '+year+' berdasarkan analisis masalah mutu dan hasil INM (menu Input PMP > tab Tahunan)','Kepala Puskesmas/Klinik + Tim Mutu',30,'Dokumen mutu prioritas tahunan tersusun')]));
   } else {
     const cur = d.pmp.fasCur, prevDoc = d.pmp.fasPrev;
     const tl = timelinessInfo(year, cur && cur.submittedAt, !!cur);
@@ -4373,11 +4562,11 @@ function analyzePmp(d){
       const prev = pv && Number(pv.den)>0 ? {p:pct(pv.num,pv.den)} : null;
       const tg = it.target!=null ? Number(it.target) : 100;
       if(!(Number(curV&&curV.den)>0)){
-        out.push(anF('PMP Puskesmas/Klinik', tl.code==='missing-late'?'mid':'info', it.name+': capaian tahun '+year+' belum diisi',
+        out.push(anF('Indikator Mutu Prioritas Puskesmas', tl.code==='missing-late'?'mid':'info', it.name+': capaian tahun '+year+' belum diisi',
           'Capaian tahunan indikator "'+it.name+'" belum diisi.'+(tl.dl?' Batas pengisian: '+fmtDateID(tl.dl)+'.':''), [],
           [anA('Isi capaian tahunan "'+it.name+'" pada menu Input PMP tab Tahunan sebelum batas waktu','PJ Mutu',14,'Capaian tahunan terisi')]));
       } else {
-        out.push(anGenericIndicator('PMP Puskesmas/Klinik', it.name, tg, curV, prev, 'tahun '+(Number(year)-1), 'tahun '+year, [], true));
+        out.push(anGenericIndicator('Indikator Mutu Prioritas Puskesmas', it.name, tg, curV, prev, 'tahun '+(Number(year)-1), 'tahun '+year, [], true));
       }
     });
   }
@@ -4594,7 +4783,7 @@ function buildAnalysis(d){
 
 /* ---------- Analisis tingkat kabupaten (INM) untuk Dinkes ---------- */
 function analyzeKabupatenInm(rows){
-  return INM.map(ind=>{
+  return inmEffectiveIndicators(STATE.period).map(ind=>{
     const t = getTarget(ind.id);
     const vals = rows.filter(r=>r.values[ind.id]!==null && r.values[ind.id]!==undefined).map(r=>({name:r.name, p:r.values[ind.id]}));
     const n = vals.length, avg = n ? vals.reduce((a,b)=>a+b.p,0)/n : null;
@@ -4710,6 +4899,7 @@ function viewDinkesAnalisis(){
   const kab = ringkasanData ? anKabupatenHtml(analyzeKabupatenInm(ringkasanData)) : '<div class="spinner"></div>';
   const content = `<div style="margin-bottom:12px;">${periodPicker()}</div>${AN_NOTE}
     <h3 class="serif" style="margin:0 0 10px; font-size:16px;">Analisis Tingkat Kabupaten — INM ${esc(periodLabel(STATE.period))}</h3>
+    ${!isSemesterMonth(STATE.period)?`<p style="font-size:12px; color:var(--ink-soft); margin:-4px 0 10px;">Kepuasan Pengguna Layanan tidak ditampilkan bulan ini — indikator tersebut hanya wajib dilaporkan tiap Juni &amp; Desember (semester).</p>`:''}
     ${kab}
     ${ringkasanData ? printExportToolbar('Analisis INM Tingkat Kabupaten', periodLabel(STATE.period), '#analisis-kab', 'Analisis_INM_Kabupaten_'+STATE.period+'.xlsx', null, periodLabel(STATE.period)) : ''}
     <h3 class="serif" style="margin:22px 0 10px; font-size:16px;">Analisis per Fasilitas</h3>
@@ -4774,26 +4964,37 @@ function printSignatureBlock(fac, pjName, pjNip, isDinkesRecap){
     </div>`;
   }
   const facilityName = fac ? fac.name : '';
+  const jenisFasilitas = facilityTypeLabel(fac && fac.type) || 'Puskesmas/Klinik';
   const kepalaNama = (fac && fac.kepalaNama) ? fac.kepalaNama : '(...........................................)';
   const kepalaNip = (fac && fac.kepalaNip) ? fac.kepalaNip : '..............................';
   const pjNama = pjName || '(...........................................)';
   const pjNipVal = pjNip || '..............................';
+  const lokasi = (fac && extractDesaFromAlamat(fac.alamat)) || facilityName || '';
   return `<div style="display:flex; justify-content:space-between; margin-top:50px; font-size:12.5px; font-family:'Manrope',sans-serif;">
     <div style="text-align:center; width:260px;">
       <div>Mengetahui,</div>
-      <div>Kepala ${esc(facilityName||'Puskesmas/Klinik')}</div>
+      <div>Kepala ${esc(jenisFasilitas)} ${esc(toTitleCase(facilityName))}</div>
       <div style="height:70px;"></div>
       <div style="font-weight:700; text-decoration:underline;">${esc(kepalaNama)}</div>
       <div>NIP. ${esc(kepalaNip)}</div>
     </div>
     <div style="text-align:center; width:260px;">
-      <div>${esc(facilityName||'')}, ${today}</div>
+      <div>${esc(lokasi)}, ${today}</div>
       <div>Penanggung Jawab Mutu</div>
       <div style="height:70px;"></div>
       <div style="font-weight:700; text-decoration:underline;">${esc(pjNama)}</div>
       <div>NIP. ${esc(pjNipVal)}</div>
     </div>
   </div>`;
+}
+/* Ambil nama kelurahan/desa dari teks alamat bebas, mis. "Jl. X Kel. Selat Tengah Kec. Selat Kode Pos 73514" -> "Selat Tengah" */
+function toTitleCase(s){
+  return String(s||'').toLowerCase().split(' ').map(w=> w ? w.charAt(0).toUpperCase()+w.slice(1) : w).join(' ');
+}
+function extractDesaFromAlamat(alamat){
+  if(!alamat) return '';
+  const m = String(alamat).match(/\b(?:Kel(?:urahan)?\.?|Desa)\s+([^,]+?)(?=\s+(?:Kec(?:amatan)?\.?|Kab(?:upaten)?\.?|Kode\s*Pos|Prov(?:insi)?\.?|$)|,|$)/i);
+  return m ? m[1].trim() : '';
 }
 
 
