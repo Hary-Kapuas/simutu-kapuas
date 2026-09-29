@@ -4060,6 +4060,68 @@ async function changePmpItemLevel(facilityId, itemId, newLevel){
   }catch(e){ toast('Gagal: '+e.message, 'error'); }
 }
 
+/* Ubah definisi indikator (nama, target, klaster/unit) langsung dari baris tabel */
+async function editPmpIndicatorDef(facilityId, itemId){
+  const host = document.getElementById('pmp-editdef-modal');
+  if(!host) return;
+  try{
+    const snap = await db.collection('pmp_indicators').doc(facilityId).collection('items').doc(itemId).get();
+    if(!snap.exists){ toast('Indikator tidak ditemukan (mungkin baru saja dihapus).', 'error'); return; }
+    const it = snap.data();
+    const isUnit = pmpLevelOf(it)==='unit';
+    host.innerHTML = modalWrap(`
+      <h3 class="serif" style="margin:0 0 14px;">Ubah Indikator Mutu Prioritas</h3>
+      <label>Nama Indikator</label>
+      <input id="ed-name" value="${esc(it.name||'')}" style="margin-bottom:12px;">
+      ${isUnit?`<label>Klaster / Unit</label>
+      <select id="ed-unit" style="margin-bottom:12px;">${ILP_KLASTER.map(k=>`<option ${it.unitName===k?'selected':''}>${esc(k)}</option>`).join('')}</select>`:''}
+      <label>Target (%)</label>
+      <input id="ed-target" type="number" step="0.01" value="${it.target!=null?it.target:100}" style="margin-bottom:16px;">
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="document.getElementById('pmp-editdef-modal').innerHTML=''">Batal</button>
+        <button class="btn btn-primary" onclick="savePmpIndicatorDef('${facilityId}','${itemId}')">Simpan</button>
+      </div>
+    `);
+  }catch(e){ toast('Gagal memuat indikator: '+e.message, 'error'); }
+}
+async function savePmpIndicatorDef(facilityId, itemId){
+  const name = document.getElementById('ed-name').value.trim();
+  if(!name){ toast('Nama indikator wajib diisi.', 'error'); return; }
+  const target = Number(document.getElementById('ed-target').value)||100;
+  const upd = {name, target};
+  const unitEl = document.getElementById('ed-unit');
+  if(unitEl) upd.unitName = unitEl.value;
+  try{
+    await db.collection('pmp_indicators').doc(facilityId).collection('items').doc(itemId).update(upd);
+    toast('Indikator diperbarui.');
+    const host = document.getElementById('pmp-editdef-modal'); if(host) host.innerHTML='';
+    const level = STATE.view==='dinkes' ? (STATE.dinkesPmpLevel||'unit') : (STATE.facPmpLevel||'unit');
+    loadPmpForFacility(facilityId, pmpPeriodFor(level), STATE.view==='dinkes'?'pmp-dinkes-body':'pmp-fac-body', STATE.view!=='dinkes', level);
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+/* Hapus hanya angka/bukti indikator ini untuk satu periode (definisi indikatornya tetap ada) */
+async function clearPmpIndicatorValue(facilityId, period, itemId, level){
+  const perLbl = level==='fasyankes' ? ('Tahun '+period) : periodLabel(period);
+  if(!confirm('Hapus data capaian indikator ini untuk periode '+perLbl+'?\n\nDefinisi indikatornya tidak ikut terhapus — hanya angka & bukti dukung periode ini yang dikosongkan.')) return;
+  try{
+    const ref = db.collection('pmp_reports').doc(facilityId+'_'+period);
+    const snap = await ref.get();
+    const d = snap.exists ? snap.data() : {};
+    const v = (d.verifikasi||{})[itemId];
+    if(v && v.status==='Terverifikasi'){
+      toast('Data ini sudah diverifikasi Dinkes sehingga tidak bisa dihapus fasilitas. Perbaiki angkanya lalu simpan ulang, atau minta Dinkes menghapusnya.', 'error');
+      return;
+    }
+    await ref.update({
+      ['values.'+itemId]: {num:0, den:0},
+      ['bukti.'+itemId]: firebase.firestore.FieldValue.delete(),
+      ['verifikasi.'+itemId]: firebase.firestore.FieldValue.delete()
+    });
+    toast('Data indikator untuk periode tersebut dihapus.');
+    loadPmpForFacility(facilityId, period, 'pmp-fac-body', true, level);
+  }catch(e){ toast('Gagal menghapus: '+e.message, 'error'); }
+}
+
 
 /* =====================================================================
    PEMBARUAN V3 — koreksi & penghapusan data yang keliru
