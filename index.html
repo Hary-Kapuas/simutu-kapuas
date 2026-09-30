@@ -241,6 +241,92 @@ const ICRA_SISTEM = [
   {v:5, label:'5 — None', desc:'Tidak ada peraturan'},
 ];
 function icraScore(p,d,s){ return (Number(p)||0)*(Number(d)||0)*(Number(s)||0); }
+/* Bundle HAIs (Bundle ISK/CAUTI, PLABSI, IDO) — sesuai Pedoman Teknis PPI di FKTP, Kemenkes 2020, Bab III.B.1 */
+const BUNDLE_HAIS = {
+  isk: {label:'Bundle ISK / CAUTI', fase:[
+    {nama:'Bundle Insersi', items:[
+      'Kaji kebutuhan pemasangan kateter (hanya bila benar-benar diperlukan, mis. retensi urine, obstruksi, pasca bedah urologi)',
+      'Kateter dipasang oleh petugas terlatih, ukuran sekecil mungkin dengan aliran adekuat',
+      'Balon dikembangkan sesuai rekomendasi pabrik; kateter difiksasi setelah terpasang untuk mencegah traksi uretra',
+      'Kebersihan tangan: sebelum menyiapkan alat, sebelum & sesudah memakai sarung tangan, setelah membereskan alat',
+      'Teknik aseptik saat pemasangan (sarung tangan & peralatan steril sekali pakai)',
+      'Jelly pelicin anestetik steril sekali pakai (single use)',
+    ]},
+    {nama:'Bundle Pemeliharaan', items:[
+      'Kebersihan tangan sebelum & sesudah memanipulasi kateter urine atau perangkatnya',
+      'Catheter-meatal junction dibersihkan tiap hari dengan sabun & air bersih (tidak dibalut)',
+      'Tidak menggunakan antibiotik/antiseptik topikal pada kateter (risiko koloni patogen resisten)',
+      'Sistem aliran urine dipertahankan lancar, steril, dan tertutup; sambungan tidak dibuka kecuali ada indikasi',
+      'Kantong urine (urine bag) dikosongkan teratur dengan wadah berbeda tiap pasien, tidak menyentuh lantai',
+      'Urine bag selalu diletakkan lebih rendah dari kandung kemih',
+      'Penggantian kateter hanya bila ada indikasi infeksi, tidak ada jadwal rutin',
+      'Pengambilan spesimen urine dengan teknik aseptik; pemeriksaan mikrobiologi tidak rutin kecuali ada indikasi',
+    ]},
+    {nama:'Pelepasan Kateter', items:[
+      'Kaji kebutuhan kateter setiap hari',
+      'Segera lepas kateter jika tidak dibutuhkan atau tidak ada indikasi',
+    ]},
+  ]},
+  plabsi: {label:'Bundle PLABSI (Infus/Peripheral Line)', fase:[
+    {nama:'Bundle Insersi', items:[
+      'Kebersihan tangan sebelum & sesudah insersi, perawatan, dan pelepasan kateter intravena perifer',
+      'Sarung tangan bersih dipakai saat pemasangan & perawatan infus, hindari kontaminasi lingkungan (tempat tidur, tiang infus, meja)',
+      'Troli tindakan & bak instrumen steril disiapkan; bengkok/safety box untuk limbah tersedia',
+      'Pemilihan lokasi/area insersi mempertimbangkan risiko paling rendah',
+      'Disinfeksi kulit dengan alkohol swab 70% sebelum insersi, tunggu kering tanpa menyentuh area kembali',
+      'Area insersi ditutup dengan kasa steril atau dressing transparan steril',
+      'Tidak melakukan penusukan pada area plastik kolf infus sebagai cara memasukkan obat',
+      'Perangkat infus digantung aman di tempat bersih, dihindari kontak dengan lingkungan tidak steril',
+      'Administrasi set dalam kondisi tertutup dan diberi label tanggal pemasangan',
+    ]},
+    {nama:'Bundle Pemeliharaan (Maintenan)', items:[
+      'Kebersihan tangan setiap sebelum & sesudah merawat/memanipulasi kateter intravena perifer',
+      'APD dipakai sesuai indikasi dan jenis paparan',
+      'Disinfeksi sambungan infus (hub) dengan alkohol 70% setiap akan diakses (dibuka/ditutup)',
+      'Slang kateter tidak terlipat/rusak (kingking); balutan steril terpasang aman dan nyaman',
+      'Konektor sistem infus dipastikan tertutup',
+      'Penggantian administrasi set sesuai standar (≤96 jam; set darah ≤24 jam; set nutrisi parenteral ≤24 jam atau ≤72 jam bila hanya dekstrosa)',
+      'Teknik insersi & pemilihan kanula tepat (ukuran terkecil sesuai kebutuhan, fiksasi adekuat) untuk mencegah plebitis mekanik',
+      'Observasi rutin area insersi/balutan dan tanda plebitis (merah, bengkak, nyeri, mengeras, cairan keluar)',
+    ]},
+    {nama:'Pelepasan Kateter', items:[
+      'Kaji kebutuhan kateter intravena perifer setiap hari',
+      'Segera lepas bila tidak diperlukan atau tidak ada indikasi lagi',
+    ]},
+  ]},
+  ido: {label:'Bundle IDO (Infeksi Daerah Operasi)', fase:[
+    {nama:'Pra-Operasi', items:[
+      'Pasien mandi/menjaga personal hygiene sebelum operasi dengan sabun antiseptik',
+      'Ruang tindakan operasi bersih, tertata baik, sirkulasi udara baik',
+      'Pencukuran rambut dihindari kecuali mengganggu prosedur; gunakan surgical electrical clipper, bukan pisau cukur',
+      'Petugas tidak memakai aksesoris di tangan (cincin, jam, gelang, cat kuku/kuku panjang)',
+      'Kebersihan tangan/cuci tangan bedah dengan sabun antiseptik sebelum tindakan',
+      'APD dipakai sesuai indikasi dan jenis pajanan',
+      'Kadar glukosa darah pasien dipertahankan 140-200 mg/dL (diabetes maupun bukan) sebelum operasi',
+      'Jumlah orang di dalam ruang/kamar tindakan dibatasi',
+    ]},
+    {nama:'Intra-Operasi', items:[
+      'Antiseptik permukaan kulit dengan alkohol 70% / iodine tincture 2% / klorheksidin 2-4%',
+      'Ruang tindakan dijaga sirkulasi udara baik dan dibersihkan tiap selesai tindakan',
+      'Suhu tubuh pasien dijaga normotermia perioperasi (gunakan alat penghangat bila perlu)',
+      'Tidak mengirigasi luka insisi dengan larutan antimikroba sebelum penutupan',
+      'Tidak memberikan bubuk vankomisin/antimikroba ke daerah sayatan pembedahan',
+      'APD dipakai sesuai indikasi dan risiko pajanan',
+      'Peralatan dipakai sesuai kriteria kritikal/semi-kritikal/non-kritikal',
+    ]},
+    {nama:'Pasca-Operasi', items:[
+      'Teknik aseptik saat pemasangan dressing dan penatalaksanaan luka',
+      'Tidak menggunakan antimikroba topikal untuk perawatan luka',
+      'Dressing (penutup luka) dilepas lebih awal (<48 jam) bila memungkinkan untuk mempercepat penyembuhan',
+      'Pemilihan dressing sesuai kebutuhan pasien dan kondisi luka (eksudat, kedalaman, kenyamanan)',
+    ]},
+  ]},
+};
+function bundleTally(answers){
+  const y = answers.filter(a=>a.jawaban==='Y').length, t = answers.filter(a=>a.jawaban==='T').length;
+  const total = y+t;
+  return {y, t, na: answers.length-total, skor: total>0 ? Math.round((y/total)*1000)/10 : null};
+}
 function ppiCategoryFromPct(pct){
   if(pct>=90) return 'Sangat Baik';
   if(pct>=70) return 'Baik';
@@ -515,6 +601,10 @@ async function printVisibleSection(title, subtitle, containerSelector, facilityI
   }
   const tableClone = el.cloneNode(true);
   tableClone.querySelectorAll('button').forEach(b=>b.remove());
+  tableClone.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+    const span = document.createElement('span'); span.textContent = cb.checked ? '✓' : ''; span.style.cssText='display:block; text-align:center;';
+    cb.replaceWith(span);
+  });
   tableClone.querySelectorAll('select,input').forEach(elm=>{
     const span = document.createElement('span'); span.textContent = elm.tagName==='SELECT' ? (elm.selectedOptions[0]?elm.selectedOptions[0].text:'') : elm.value;
     elm.replaceWith(span);
@@ -1892,7 +1982,7 @@ async function deleteIkpReport(id, facilityId){
 
 /* ================= PPI — Facility side ================= */
 function ppiSubNav(active, isDinkes){
-  const tabs = [{id:'pajanan',label:'Laporan Pajanan'},{id:'checklist',label:'Daftar Tilik PPI'},{id:'audit',label:'Audit Kualitas PPI'},{id:'icra',label:'ICRA'}];
+  const tabs = [{id:'pajanan',label:'Laporan Pajanan'},{id:'checklist',label:'Daftar Tilik PPI'},{id:'audit',label:'Audit Kualitas PPI'},{id:'icra',label:'ICRA'},{id:'bundle',label:'Bundle HAIs'}];
   return `<div style="display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;">${tabs.map(t=>`
     <button class="btn ${active===t.id?'btn-primary':'btn-secondary'}" style="padding:7px 13px; font-size:13px;"
       onclick="${isDinkes?`STATE.dinkesPpiSub='${t.id}'; renderDinkesShell();`:`STATE.facPpiSub='${t.id}'; renderFacilityShell();`}">${t.label}</button>`).join('')}</div>`;
@@ -1905,12 +1995,14 @@ function viewFacPPI(fac){
   if(sub==='checklist') inner = ppiChecklistFormHtml() + `<h3 class="serif" style="margin:24px 0 10px; font-size:16px;">Riwayat Daftar Tilik</h3><div id="ppi-checklist-list"><div class="spinner"></div></div>${printExportToolbar('Daftar Tilik PPI', fac?fac.name:'', '#ppi-checklist-list', 'PPI_DaftarTilik.xlsx', facilityId, null)}`;
   if(sub==='audit') inner = ppiAuditFormHtml() + `<h3 class="serif" style="margin:24px 0 10px; font-size:16px;">Riwayat Audit Kualitas PPI</h3><div id="ppi-audit-list"><div class="spinner"></div></div>${printExportToolbar('Audit Kualitas PPI', fac?fac.name:'', '#ppi-audit-list', 'PPI_Audit.xlsx', facilityId, null)}`;
   if(sub==='icra') inner = icraFormHtml(facilityId) + `<h3 class="serif" style="margin:24px 0 10px; font-size:16px;">Daftar ICRA</h3><div id="ppi-icra-list"><div class="spinner"></div></div>${printExportToolbar('ICRA — Identifikasi & Pengendalian Risiko Infeksi', fac?fac.name:'', '#ppi-icra-list', 'PPI_ICRA.xlsx', facilityId, null)}`;
+  if(sub==='bundle') inner = bundleFormHtml(facilityId) + `<h3 class="serif" style="margin:24px 0 10px; font-size:16px;">Riwayat Bundle HAIs</h3><div id="ppi-bundle-list"><div class="spinner"></div></div>${printExportToolbar('Bundle HAIs', fac?fac.name:'', '#ppi-bundle-list', 'PPI_Bundle.xlsx', facilityId, null)}`;
   const content = ppiSubNav(sub,false) + inner;
   setTimeout(()=>{
     if(sub==='pajanan') loadPpiPajananList(facilityId);
     if(sub==='checklist') loadPpiChecklistList(facilityId);
     if(sub==='audit') loadPpiAuditList(facilityId);
     if(sub==='icra'){ updateIcraScorePreview(); loadIcraList(facilityId, true); }
+    if(sub==='bundle'){ renderBundleFields(); loadBundleList(facilityId, true); }
     updatePpiChecklistPreview();
   }, 30);
   return ['Pencegahan & Pengendalian Infeksi (PPI)', fac?fac.name:'', content];
@@ -2258,6 +2350,121 @@ async function saveIcraEdit(facilityId, id){
   }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
 }
 
+/* -- Bundle HAIs (Bundle ISK/CAUTI, PLABSI, IDO) -- */
+function bundleFormHtml(facilityId){
+  return `<div class="card" style="padding:18px; max-width:820px;">
+    <h3 class="serif" style="margin:0 0 4px; font-size:16px;">Checklist Kepatuhan Bundle HAIs</h3>
+    <p style="font-size:12px; color:var(--ink-soft); margin:0 0 14px;">Diisi setiap kali ada tindakan pemasangan kateter urine, pemasangan infus, atau tindakan bedah minor — sesuai Pedoman Teknis PPI di FKTP (Kemenkes, 2020).</p>
+    <label>Jenis Bundle</label>
+    <select id="bundle-jenis" onchange="renderBundleFields()" style="margin-bottom:12px;">
+      ${Object.keys(BUNDLE_HAIS).map(k=>`<option value="${k}">${esc(BUNDLE_HAIS[k].label)}</option>`).join('')}
+    </select>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:6px;">
+      <div><label>Tanggal Tindakan</label><input type="date" id="bundle-tanggal" value="${todayISO()}"></div>
+      <div><label>Petugas Pelaksana</label><input id="bundle-petugas"></div>
+      <div><label>Identitas Pasien / No. RM (opsional)</label><input id="bundle-pasien"></div>
+    </div>
+    <div id="bundle-fields-container" style="margin:14px 0;"></div>
+    <div id="bundle-score-preview" style="margin-bottom:14px; padding:10px 12px; background:var(--paper); border-radius:8px; font-size:13.5px; font-weight:600;"></div>
+    ${newRecordBuktiFieldHtml('bundle')}
+    <button class="btn btn-primary" onclick="submitBundle('${facilityId}')">Simpan Checklist Bundle</button>
+  </div>`;
+}
+function renderBundleFields(){
+  const sel = document.getElementById('bundle-jenis');
+  const box = document.getElementById('bundle-fields-container');
+  if(!sel || !box) return;
+  const b = BUNDLE_HAIS[sel.value];
+  box.innerHTML = b.fase.map((f,fi)=>`
+    <div style="margin-bottom:14px;">
+      <div style="font-weight:700; font-size:13px; margin-bottom:6px; color:var(--teal-deep);">${esc(f.nama)}</div>
+      ${f.items.map((it,ii)=>`<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-soft);">
+        <div style="font-size:12.5px; flex:1;">${esc(it)}</div>
+        <select id="bundle-item-${fi}-${ii}" class="bundle-item" data-fase="${esc(f.nama)}" data-item="${esc(it).replace(/"/g,'&quot;')}" style="width:auto; min-width:130px;" onchange="updateBundleScorePreview()">
+          <option value="Y">Ya</option><option value="T">Tidak</option><option value="N">Tidak Berlaku</option>
+        </select>
+      </div>`).join('')}
+    </div>`).join('');
+  updateBundleScorePreview();
+}
+function updateBundleScorePreview(){
+  const box = document.getElementById('bundle-score-preview');
+  if(!box) return;
+  const sels = document.querySelectorAll('.bundle-item');
+  const answers = Array.from(sels).map(s=>({jawaban:s.value}));
+  const t = bundleTally(answers);
+  box.textContent = t.skor===null ? 'Isi checklist untuk melihat persentase kepatuhan.' : 'Kepatuhan: '+t.skor+'% ('+t.y+' Ya, '+t.t+' Tidak dari '+(t.y+t.t)+' item berlaku) — '+ppiCategoryFromPct(t.skor);
+}
+async function submitBundle(facilityId){
+  const jenis = document.getElementById('bundle-jenis').value;
+  const tanggal = document.getElementById('bundle-tanggal').value;
+  if(!tanggal){ toast('Tanggal tindakan wajib diisi.', 'error'); return; }
+  const sels = document.querySelectorAll('.bundle-item');
+  const answers = Array.from(sels).map(s=>({fase:s.getAttribute('data-fase'), item:s.getAttribute('data-item'), jawaban:s.value}));
+  const t = bundleTally(answers);
+  const bukti = await maybeUploadBukti('bundle');
+  if(!bukti.ok) return;
+  try{
+    const payload = { facilityId, jenisBundle:jenis, tanggal, petugas:document.getElementById('bundle-petugas').value.trim(),
+      pasien:document.getElementById('bundle-pasien').value.trim(), answers, skor:t.skor, kategori: t.skor===null?null:ppiCategoryFromPct(t.skor),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid };
+    applyBukti(payload, bukti);
+    await db.collection('ppi_bundle').add(payload);
+    toast('Checklist Bundle HAIs tersimpan.');
+    renderFacilityShell();
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+async function loadBundleList(facilityId, editable, targetId){
+  const el = document.getElementById(targetId || (editable?'ppi-bundle-list':'ppi-bundle-dinkes-list'));
+  if(!el) return;
+  let items = [];
+  try{
+    const snap = await db.collection('ppi_bundle').where('facilityId','==',facilityId).get();
+    items = snap.docs.map(x=>({id:x.id, ...x.data()}));
+    items.sort((a,b)=> (b.tanggal||'').localeCompare(a.tanggal||''));
+  }catch(e){ toast('Gagal memuat Bundle HAIs: '+e.message, 'error'); }
+  if(items.length===0){ el.innerHTML = `<div class="card" style="padding:18px; text-align:center; color:var(--ink-soft);">Belum ada checklist Bundle HAIs tercatat.</div>`; return; }
+  el.innerHTML = `<div class="card scrollx" style="padding:4px;"><table>
+    <thead><tr><th>Tanggal</th><th>Jenis Bundle</th><th>Petugas</th><th>Kepatuhan</th><th>Kategori</th>${buktiTh()}<th></th></tr></thead>
+    <tbody>${items.map(it=>`<tr>
+      <td>${esc(it.tanggal)}</td>
+      <td style="white-space:normal; min-width:150px;">${esc((BUNDLE_HAIS[it.jenisBundle]||{}).label||it.jenisBundle)}</td>
+      <td>${esc(it.petugas||'—')}</td>
+      <td style="font-weight:700;">${it.skor===null||it.skor===undefined?'—':it.skor+'%'}</td>
+      <td>${it.kategori?`<span class="pill ${it.kategori==='Sangat Baik'||it.kategori==='Baik'?'pill-ok':it.kategori==='Cukup'?'pill-warn':'pill-bad'}">${esc(it.kategori)}</span>`:'—'}</td>
+      ${buktiTd(it,'ppi_bundle', editable?'null':`loadBundleListDinkes`, !editable)}
+      <td class="no-print" style="white-space:nowrap;">
+        <button class="btn btn-ghost" style="padding:3px 7px; font-size:11.5px; display:block; margin-bottom:3px;" onclick="viewBundleDetail('${it.id}')">Lihat Detail</button>
+        ${editable?`<button class="btn btn-ghost" style="padding:3px 7px; font-size:11.5px; color:var(--rust);" onclick="deleteRecordWithLog('ppi_bundle','${it.id}', ()=>loadBundleList('${facilityId}',true))">Hapus</button>`:''}
+      </td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+async function viewBundleDetail(id){
+  try{
+    const snap = await db.collection('ppi_bundle').doc(id).get();
+    if(!snap.exists){ toast('Data tidak ditemukan.', 'error'); return; }
+    const it = snap.data();
+    const old = document.getElementById('bundle-detail-modal-host'); if(old) old.remove();
+    const host = document.createElement('div'); host.id='bundle-detail-modal-host'; document.body.appendChild(host);
+    const byFase = {}; (it.answers||[]).forEach(a=>{ (byFase[a.fase]=byFase[a.fase]||[]).push(a); });
+    const jawabanLabel = {Y:'Ya', T:'Tidak', N:'Tidak Berlaku'};
+    const jawabanCls = {Y:'pill-ok', T:'pill-bad', N:'pill-warn'};
+    host.innerHTML = modalWrap(`
+      <h3 class="serif" style="margin:0 0 4px;">${esc((BUNDLE_HAIS[it.jenisBundle]||{}).label||it.jenisBundle)}</h3>
+      <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 14px;">${esc(it.tanggal)} — Petugas: ${esc(it.petugas||'—')}${it.pasien?' — Pasien: '+esc(it.pasien):''}</p>
+      <div style="max-height:400px; overflow-y:auto;">
+        ${Object.keys(byFase).map(fn=>`<div style="margin-bottom:12px;">
+          <div style="font-weight:700; font-size:12.5px; margin-bottom:6px; color:var(--teal-deep);">${esc(fn)}</div>
+          ${byFase[fn].map(a=>`<div style="display:flex; justify-content:space-between; gap:10px; padding:4px 0; border-bottom:1px solid var(--line-soft);">
+            <div style="font-size:12px; flex:1;">${esc(a.item)}</div><span class="pill ${jawabanCls[a.jawaban]}">${jawabanLabel[a.jawaban]}</span>
+          </div>`).join('')}
+        </div>`).join('')}
+      </div>
+      <div style="display:flex; justify-content:flex-end; margin-top:12px;"><button class="btn btn-ghost" onclick="document.getElementById('bundle-detail-modal-host').remove()">Tutup</button></div>
+    `);
+  }catch(e){ toast('Gagal memuat detail: '+e.message, 'error'); }
+}
+
 /* ================= PPI — Dinkes side (recap) ================= */
 let ppiDinkesFacility='all';
 function viewDinkesPPI(){
@@ -2283,9 +2490,9 @@ async function loadIcraListDinkes(){
   }
   await loadIcraList(ppiDinkesFacility, false, 'ppi-dinkes-body');
 }
-let ppiDinkesCache = {pajanan:null, checklist:null, audit:null};
+let ppiDinkesCache = {pajanan:null, checklist:null, audit:null, bundle:null};
 async function loadPpiDinkesRecap(sub){
-  const coll = sub==='pajanan'?'ppi_pajanan':sub==='checklist'?'ppi_checklist':'ppi_audit';
+  const coll = sub==='pajanan'?'ppi_pajanan':sub==='checklist'?'ppi_checklist':sub==='bundle'?'ppi_bundle':'ppi_audit';
   const snap = await db.collection(coll).limit(500).get();
   const items = snap.docs.map(d=>({id:d.id, ...d.data()}));
   ppiDinkesCache[sub]=items;
@@ -2300,6 +2507,9 @@ async function loadPpiDinkesRecap(sub){
   } else if(sub==='checklist'){
     table = `<table><thead><tr><th>Bulan</th><th>Fasilitas</th><th>Ruang</th><th>Skor</th><th>Kategori</th>${buktiTh()}</tr></thead>
       <tbody>${filtered.map(it=>`<tr><td>${periodLabel(it.period)}</td><td style="font-weight:600;">${esc(facName(it.facilityId))}</td><td>${esc(it.ruang)}</td><td>${it.skor}%</td><td><span class="pill ${it.kategori==='Sangat Baik'||it.kategori==='Baik'?'pill-ok':it.kategori==='Cukup'?'pill-warn':'pill-bad'}">${esc(it.kategori)}</span></td>${buktiTd(it,'ppi_checklist',`()=>loadPpiDinkesRecap('checklist')`,true)}</tr>`).join('') || `<tr><td colspan="7" style="padding:16px; color:var(--ink-soft);">Belum ada data.</td></tr>`}</tbody></table>`;
+  } else if(sub==='bundle'){
+    table = `<table><thead><tr><th>Tanggal</th><th>Fasilitas</th><th>Jenis Bundle</th><th>Petugas</th><th>Kepatuhan</th><th>Kategori</th>${buktiTh()}<th></th></tr></thead>
+      <tbody>${filtered.map(it=>`<tr><td>${esc(it.tanggal)}</td><td style="font-weight:600;">${esc(facName(it.facilityId))}</td><td style="white-space:normal; min-width:150px;">${esc((BUNDLE_HAIS[it.jenisBundle]||{}).label||it.jenisBundle)}</td><td>${esc(it.petugas||'—')}</td><td style="font-weight:700;">${it.skor===null||it.skor===undefined?'—':it.skor+'%'}</td><td>${it.kategori?`<span class="pill ${it.kategori==='Sangat Baik'||it.kategori==='Baik'?'pill-ok':it.kategori==='Cukup'?'pill-warn':'pill-bad'}">${esc(it.kategori)}</span>`:'—'}</td>${buktiTd(it,'ppi_bundle',`()=>loadPpiDinkesRecap('bundle')`,true)}<td class="no-print"><button class="btn btn-ghost" style="padding:3px 7px; font-size:11.5px;" onclick="viewBundleDetail('${it.id}')">Lihat Detail</button></td></tr>`).join('') || `<tr><td colspan="9" style="padding:16px; color:var(--ink-soft);">Belum ada data.</td></tr>`}</tbody></table>`;
   } else {
     table = `<table><thead><tr><th>Tanggal</th><th>Fasilitas</th><th>Ruang</th><th>Auditor</th><th>Ya</th><th>Tidak</th><th>Kadang</th>${buktiTh()}</tr></thead>
       <tbody>${filtered.map(it=>{ const y=it.answers.filter(a=>a.jawaban==='Y').length, t=it.answers.filter(a=>a.jawaban==='T').length, k=it.answers.filter(a=>a.jawaban==='K').length;
@@ -2322,6 +2532,10 @@ function exportPpiXlsx(sub){
     aoa=[['Tanggal','Fasilitas','Ruang','Auditor','Ya','Tidak','Kadang-kadang']];
     items.forEach(it=>{ const y=it.answers.filter(a=>a.jawaban==='Y').length, t=it.answers.filter(a=>a.jawaban==='T').length, k=it.answers.filter(a=>a.jawaban==='K').length;
       aoa.push([it.tanggal, facName(it.facilityId), it.ruang, it.auditor, y, t, k]); });
+  }
+  if(sub==='bundle'){
+    aoa=[['Tanggal','Fasilitas','Jenis Bundle','Petugas','Kepatuhan (%)','Kategori']];
+    items.forEach(it=>aoa.push([it.tanggal, facName(it.facilityId), (BUNDLE_HAIS[it.jenisBundle]||{}).label||it.jenisBundle, it.petugas||'', it.skor, it.kategori]));
   }
   downloadXlsx(`PPI_${sub}.xlsx`, aoa, sub);
 }
@@ -3419,7 +3633,7 @@ const MIME_BY_EXT = {pdf:'application/pdf', xls:'application/vnd.ms-excel', xlsx
   doc:'application/msword', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ppt:'application/vnd.ms-powerpoint',
   pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', txt:'text/plain', zip:'application/zip'};
 const BUKTI_MODULE_BY_PREFIX = {ikp:'IKP', pj:'PPI-Laporan-Pajanan', chk:'PPI-Daftar-Tilik', ad:'PPI-Audit-Kualitas', f1:'Audit-Hasil-Indikator', tm:'Audit-Temuan',
-  rr:'Risiko-Register', rp:'Risiko-Profil', pm:'Risiko-Pemantauan', mf:'MFK-Register-Risiko', k3p:'K3-Pemetaan', k3r:'K3-Perencanaan', b3:'K3-Inventaris-B3', rtl:'RTL-Indikator-Mutu-Prioritas', icra:'PPI-ICRA'};
+  rr:'Risiko-Register', rp:'Risiko-Profil', pm:'Risiko-Pemantauan', mf:'MFK-Register-Risiko', k3p:'K3-Pemetaan', k3r:'K3-Perencanaan', b3:'K3-Inventaris-B3', rtl:'RTL-Indikator-Mutu-Prioritas', icra:'PPI-ICRA', bundle:'PPI-Bundle-HAIs'};
 let __uploadBusy = false;
 
 /* ---------- Perbaikan: nama sheet Excel maks 31 karakter & tanpa karakter terlarang ---------- */
@@ -4333,8 +4547,8 @@ async function clearPmpIndicatorValue(facilityId, period, itemId, level){
    ===================================================================== */
 const MODUL_LABEL = {ikp_reports:'IKP', ppi_pajanan:'PPI — Laporan Pajanan', ppi_checklist:'PPI — Daftar Tilik', ppi_audit:'PPI — Audit Kualitas', ppi_icra:'PPI — ICRA',
   audit_form1:'Audit — Hasil Indikator', audit_temuan:'Audit — Temuan', risk_register:'Risiko — Register', risk_profil:'Risiko — Profil', risk_pemantauan:'Risiko — Pemantauan',
-  mfk_register:'MFK — Register Risiko', k3_pemetaan:'K3 — Pemetaan', k3_perencanaan:'K3 — Perencanaan', k3_b3:'K3 — Inventaris B3', inm_reports:'INM', pmp_reports:'Indikator Mutu Prioritas', pmp_rtl:'RTL Indikator Mutu Prioritas'};
-const BUKTI_MODULE_BY_COLLECTION = {ikp_reports:'IKP', ppi_pajanan:'PPI-Laporan-Pajanan', ppi_checklist:'PPI-Daftar-Tilik', ppi_audit:'PPI-Audit-Kualitas', ppi_icra:'PPI-ICRA',
+  mfk_register:'MFK — Register Risiko', k3_pemetaan:'K3 — Pemetaan', k3_perencanaan:'K3 — Perencanaan', k3_b3:'K3 — Inventaris B3', inm_reports:'INM', pmp_reports:'Indikator Mutu Prioritas', pmp_rtl:'RTL Indikator Mutu Prioritas', ppi_bundle:'PPI — Bundle HAIs'};
+const BUKTI_MODULE_BY_COLLECTION = {ikp_reports:'IKP', ppi_pajanan:'PPI-Laporan-Pajanan', ppi_checklist:'PPI-Daftar-Tilik', ppi_audit:'PPI-Audit-Kualitas', ppi_icra:'PPI-ICRA', ppi_bundle:'PPI-Bundle-HAIs',
   audit_form1:'Audit-Hasil-Indikator', audit_temuan:'Audit-Temuan', risk_register:'Risiko-Register', risk_profil:'Risiko-Profil', risk_pemantauan:'Risiko-Pemantauan',
   mfk_register:'MFK-Register-Risiko', k3_pemetaan:'K3-Pemetaan', k3_perencanaan:'K3-Perencanaan', k3_b3:'K3-Inventaris-B3', pmp_rtl:'RTL-Indikator-Mutu-Prioritas'};
 
@@ -4342,7 +4556,7 @@ function recordSummary(collection, d){
   const cut = (s,n)=>String(s||'').substring(0,n);
   const m = {
     ikp_reports: x=>[x.tanggal, x.unit, cut(x.deskripsi,60)], ppi_pajanan: x=>[x.tanggalLaporan, x.nama], ppi_checklist: x=>[x.period, x.ruang],
-    ppi_audit: x=>[x.tanggal, x.ruang], ppi_icra: x=>[x.uraian, 'Skor '+x.score], audit_form1: x=>[x.tanggal, cut(x.indikator,60)], audit_temuan: x=>[x.tanggal, cut(x.temuan,60)],
+    ppi_audit: x=>[x.tanggal, x.ruang], ppi_icra: x=>[x.uraian, 'Skor '+x.score], ppi_bundle: x=>[x.tanggal, (BUNDLE_HAIS[x.jenisBundle]||{}).label||x.jenisBundle, x.skor!=null?'Kepatuhan '+x.skor+'%':''], audit_form1: x=>[x.tanggal, cut(x.indikator,60)], audit_temuan: x=>[x.tanggal, cut(x.temuan,60)],
     risk_register: x=>[x.kodeRisiko, cut(x.risiko,60)], risk_profil: x=>[x.kodeRisiko, cut(x.risikoPrioritas,60)], risk_pemantauan: x=>[x.kodeRisiko, x.trendRisiko],
     mfk_register: x=>[x.unitKerja, cut(x.risiko,60)], k3_pemetaan: x=>[x.klaster, x.ruangPelayanan], k3_perencanaan: x=>[x.klaster, cut(x.kegiatan,60)],
     k3_b3: x=>[x.bulan, x.namaBahan], inm_reports: x=>['Periode '+x.period], pmp_reports: x=>['Periode '+x.period+(x.level==='fasyankes'?' (Tahunan)':'')],
@@ -5127,7 +5341,9 @@ function renderAnalysisHtml(res, d){
       <h3 class="serif" style="margin:16px 0 8px; font-size:16px;">Rencana Tindak Lanjut (usulan)</h3>
       ${res.rtl.length ? `<div class="scrollx"><table>
         <thead><tr><th>No</th><th>Prioritas</th><th>Modul</th><th>Temuan</th><th>Kegiatan Tindak Lanjut</th><th>Penanggung Jawab (usulan)</th><th>Target Waktu (usulan)</th><th>Indikator Keberhasilan</th><th>Status Pelaksanaan</th></tr></thead>
-        <tbody>${rtlRows}</tbody></table></div>` : '<p style="font-size:13px; color:var(--ink-soft);">Tidak ada tindak lanjut mendesak. Pertahankan kinerja dan lengkapi data secara berkala.</p>'}
+        <tbody>${rtlRows}</tbody></table></div>`
+       : `<div class="scrollx"><table><thead><tr><th>No</th><th>Prioritas</th><th>Modul</th><th>Temuan</th><th>Kegiatan Tindak Lanjut</th><th>Penanggung Jawab (usulan)</th><th>Target Waktu (usulan)</th><th>Indikator Keberhasilan</th><th>Status Pelaksanaan</th></tr></thead>
+        <tbody><tr><td colspan="9" style="padding:16px; text-align:center; color:var(--ink-soft);">Tidak ada tindak lanjut mendesak. Pertahankan kinerja dan lengkapi data secara berkala.</td></tr></tbody></table></div>`}
       <p style="font-size:11.5px; color:var(--ink-soft); margin:12px 0 0;">Dokumen ini disusun otomatis berdasarkan data yang diinput dan aturan analisis baku; sesuaikan penanggung jawab dan tenggat dengan kondisi ${esc(facLbl||'fasilitas')} setelah dibahas bersama tim.</p>
     </div>
     <h3 class="serif" style="margin:0 0 10px; font-size:16px;">Rincian Analisis per Modul</h3>${detail}`;
