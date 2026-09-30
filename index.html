@@ -145,7 +145,20 @@ const SEED_FACILITIES = ["LUPAK","TAMBAN BARU","TAMBAN CATUR","ANJIR SERAPAT","S
   "TERUSAN TENGAH","PULAU KUPANG","BASARANG","BARIMBA","SEI TATAS","PALINGKAU","PALANGKAU","DADAHUP","TALEKUNG PUNAI",
   "MANDOMAI","MANTANGAI","DANAU RAWAH","LAMUNTI","TIMPAH","PUJON","JANGKANG","SEI HANYO","SEI PINANG","BUKIT BATU"];
 const MONTHS = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
-const ILP_KLASTER = ['Klaster 1 - Manajemen','Klaster 2 - Ibu dan Anak','Klaster 3 - Usia Dewasa dan Lanjut Usia','Klaster 4 - Penanggulangan Penyakit Menular','Lintas Klaster'];
+const ILP_STRUKTUR = [
+  {klaster:'Klaster 1 - Manajemen', unit:['Manajemen Inti Puskesmas','Manajemen Ketatausahaan','Manajemen Sumber Daya Manusia','Manajemen Sarana, Prasarana dan Perbekalan Kesehatan','Manajemen Mutu Pelayanan','Manajemen Keuangan dan Aset/BMD','Manajemen Sistem Informasi Digital','Manajemen Jejaring']},
+  {klaster:'Klaster 2 - Ibu dan Anak', unit:['Ibu Hamil, Bersalin, Nifas','Balita dan Anak Pra-sekolah','Anak Usia Sekolah dan Remaja']},
+  {klaster:'Klaster 3 - Usia Dewasa dan Lanjut Usia', unit:['Usia Dewasa','Lanjut Usia']},
+  {klaster:'Klaster 4 - Penanggulangan Penyakit Menular', unit:['Kesehatan Lingkungan','Surveilans dan Respon']},
+  {klaster:'Lintas Klaster', unit:['Promosi Kesehatan','Pelayanan Kesehatan Gigi dan Mulut','Pelayanan Gawat Darurat','Pelayanan Kefarmasian','Pelayanan Laboratorium Kesehatan Masyarakat','Pelayanan Rawat Inap','Pelayanan Respon Krisis Kesehatan','Pelayanan Fisioterapi']},
+];
+const ILP_KLASTER = ILP_STRUKTUR.flatMap(g=>g.unit.map(u=>g.klaster+' — '+u));
+function ilpUnitOptionsHtml(selected){
+  return ILP_STRUKTUR.map(g=>`<optgroup label="${esc(g.klaster)}">${g.unit.map(u=>{
+    const v = g.klaster+' — '+u;
+    return `<option value="${esc(v)}" ${selected===v?'selected':''}>${esc(u)}</option>`;
+  }).join('')}</optgroup>`).join('');
+}
 /* Kepuasan Pengguna Layanan dilaporkan per semester (Juni & Desember), bukan tiap bulan */
 function isSemesterIndicator(indId){ return indId==='kepuasan'; }
 function isSemesterMonth(period){ const m = Number(String(period).split('-')[1]); return m===6 || m===12; }
@@ -1708,7 +1721,7 @@ function viewFacIkp(fac){
     <div class="card" style="padding:18px; margin-bottom:22px; max-width:640px;">
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
         <div><label>Tanggal Laporan</label><input type="date" id="ikp-tanggal" value="${today}"></div>
-        <div><label>Klaster / Unit</label><select id="ikp-unit">${ILP_KLASTER.map(k=>`<option>${esc(k)}</option>`).join('')}</select></div>
+        <div><label>Klaster / Unit</label><select id="ikp-unit">${ilpUnitOptionsHtml()}</select></div>
       </div>
       <label>Laporan Kejadian</label>
       <textarea id="ikp-deskripsi" rows="3" placeholder="Uraikan kronologi kejadian secara singkat dan jelas" style="margin-bottom:12px;"></textarea>
@@ -4050,7 +4063,7 @@ async function openPmpDefModal(facilityId){
       </select>
       <div id="pmp-new-unit-wrap" style="display:${defLevel==='unit'?'block':'none'};">
         <label>Klaster / Unit</label>
-        <select id="pmp-new-unit" style="margin-bottom:10px;">${ILP_KLASTER.map(k=>`<option>${esc(k)}</option>`).join('')}</select>
+        <select id="pmp-new-unit" style="margin-bottom:10px;">${ilpUnitOptionsHtml()}</select>
       </div>
       <label>Nama Indikator Baru</label>
       <input id="pmp-new-name" placeholder="Contoh: Kepatuhan Waktu Tunggu Rawat Jalan" style="margin-bottom:10px;">
@@ -4111,7 +4124,7 @@ async function editPmpIndicatorDef(facilityId, itemId){
       <label>Nama Indikator</label>
       <input id="ed-name" value="${esc(it.name||'')}" style="margin-bottom:12px;">
       ${isUnit?`<label>Klaster / Unit</label>
-      <select id="ed-unit" style="margin-bottom:12px;">${ILP_KLASTER.map(k=>`<option ${it.unitName===k?'selected':''}>${esc(k)}</option>`).join('')}</select>`:''}
+      <select id="ed-unit" style="margin-bottom:12px;">${ilpUnitOptionsHtml(it.unitName)}</select>`:''}
       <label>Target (%)</label>
       <input id="ed-target" type="number" step="0.01" value="${it.target!=null?it.target:100}" style="margin-bottom:16px;">
       <div style="display:flex; gap:8px; justify-content:flex-end;">
