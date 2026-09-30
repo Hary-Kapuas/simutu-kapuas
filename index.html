@@ -896,6 +896,7 @@ function shellLayout(navHtml, contentHtml, titleText, subText){
 const DINKES_TABS = [
   {id:'ringkasan', label:'Ringkasan', icon:'◎'},
   {id:'analisis', label:'Analisis & RTL', icon:'✦'},
+  {id:'pdsa', label:'Proyek Mutu (PDSA)', icon:'⟲'},
   {id:'inm', label:'Data INM', icon:'▤'},
   {id:'pmp', label:'Indikator Mutu Prioritas', icon:'▥'},
   {id:'ikp', label:'Insiden (IKP)', icon:'⚑'},
@@ -916,6 +917,7 @@ function renderDinkesShell(){
   switch(STATE.dinkesTab){
     case 'ringkasan': [title,sub,content]=viewRingkasan(); break;
     case 'analisis': [title,sub,content]=viewDinkesAnalisis(); break;
+    case 'pdsa': [title,sub,content]=viewDinkesPdsa(); break;
     case 'inm': [title,sub,content]=viewDinkesINM(); break;
     case 'pmp': [title,sub,content]=viewDinkesPMP(); break;
     case 'ikp': [title,sub,content]=viewDinkesIKP(); break;
@@ -1667,6 +1669,7 @@ const FAC_TABS = [
   {id:'risiko', label:'Manajemen Risiko', icon:'▲'},
   {id:'mfk', label:'MFK & K3', icon:'⚒'},
   {id:'analisis', label:'Analisis & RTL', icon:'✦'},
+  {id:'pdsa', label:'Proyek Mutu (PDSA)', icon:'⟲'},
   {id:'riwayat', label:'Riwayat & Grafik', icon:'∿'},
   {id:'profil', label:'Profil', icon:'●'},
 ];
@@ -1684,6 +1687,7 @@ function renderFacilityShell(){
     case 'mfk': [title,sub,content]=viewFacMfk(fac); break;
     case 'riwayat': [title,sub,content]=viewFacRiwayat(fac); break;
     case 'analisis': [title,sub,content]=viewFacAnalisis(fac); break;
+    case 'pdsa': [title,sub,content]=viewFacPdsa(fac); break;
     case 'profil': [title,sub,content]=viewFacProfil(fac); break;
   }
   shellLayout(nav, content, title, sub);
@@ -2348,6 +2352,233 @@ async function saveIcraEdit(facilityId, id){
     const host = document.getElementById('icra-edit-modal-host'); if(host) host.remove();
     loadIcraList(facilityId, true);
   }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+
+/* ================= Proyek Peningkatan Mutu (PDSA) ================= */
+const PDSA_STATUS = ['Berjalan','Selesai','Dihentikan'];
+const PDSA_ACT_KEPUTUSAN = ['Adopsi (diterapkan permanen)','Adaptasi (disesuaikan, lanjut siklus berikutnya)','Hentikan (tidak dilanjutkan)'];
+function pdsaStatusBadge(s){
+  const cls = s==='Selesai' ? 'pill-ok' : s==='Dihentikan' ? 'pill-bad' : 'pill-warn';
+  return `<span class="pill ${cls}">${esc(s||'Berjalan')}</span>`;
+}
+function pdsaFormHtml(facilityId){
+  return `<div class="card" style="padding:18px; max-width:760px; margin-bottom:22px;">
+    <h3 class="serif" style="margin:0 0 4px; font-size:16px;">Proyek Peningkatan Mutu Baru (PDSA)</h3>
+    <p style="font-size:12px; color:var(--ink-soft); margin:0 0 14px;">Untuk perbaikan yang perlu diuji bertahap beberapa siklus (Plan-Do-Study-Act) — berbeda dari Rencana Tindak Lanjut biasa yang sifatnya sekali jalan.</p>
+    <label>Judul Proyek</label>
+    <input id="pdsa-judul" placeholder="Contoh: Menurunkan Angka Plebitis di Ruang Rawat Inap" style="margin-bottom:12px;">
+    <label>Latar Belakang / Masalah</label>
+    <textarea id="pdsa-latar" rows="2" style="margin-bottom:12px;"></textarea>
+    <label>Tujuan (SMART)</label>
+    <textarea id="pdsa-tujuan" rows="2" style="margin-bottom:12px;" placeholder="Contoh: Menurunkan angka plebitis dari 8% menjadi <3% dalam 3 bulan"></textarea>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+      <div><label>Penanggung Jawab</label><input id="pdsa-pj"></div>
+      <div><label>Tanggal Mulai</label><input type="date" id="pdsa-tanggal" value="${todayISO()}"></div>
+    </div>
+    <button class="btn btn-primary" onclick="submitPdsaProyek('${facilityId}')">Buat Proyek</button>
+  </div>`;
+}
+async function submitPdsaProyek(facilityId){
+  const g = id => document.getElementById(id).value.trim();
+  const judul = g('pdsa-judul');
+  if(!judul){ toast('Judul proyek wajib diisi.', 'error'); return; }
+  try{
+    await db.collection('mutu_proyek').add({
+      facilityId, judul, latarBelakang:g('pdsa-latar'), tujuan:g('pdsa-tujuan'), penanggungJawab:g('pdsa-pj'),
+      tanggalMulai:document.getElementById('pdsa-tanggal').value, status:'Berjalan', siklus:[],
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid
+    });
+    toast('Proyek PDSA dibuat.');
+    renderFacilityShell();
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+async function loadPdsaList(facilityId, editable, targetId){
+  const el = document.getElementById(targetId || (editable?'pdsa-list':'pdsa-dinkes-list'));
+  if(!el) return;
+  let items = [];
+  try{
+    const snap = await db.collection('mutu_proyek').where('facilityId','==',facilityId).get();
+    items = snap.docs.map(x=>({id:x.id, ...x.data()}));
+    items.sort((a,b)=>{ const ta=tsToDate(a.createdAt), tb=tsToDate(b.createdAt); return (tb?tb.getTime():0)-(ta?ta.getTime():0); });
+  }catch(e){ toast('Gagal memuat proyek PDSA: '+e.message, 'error'); }
+  if(items.length===0){ el.innerHTML = `<div class="card" style="padding:18px; text-align:center; color:var(--ink-soft);">Belum ada proyek peningkatan mutu.</div>`; return; }
+  el.innerHTML = items.map(it=>`
+    <div class="card" style="padding:16px; margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700; font-size:14px;">${esc(it.judul)}</div>
+          <div style="font-size:12px; color:var(--ink-soft); margin-top:2px;">PJ: ${esc(it.penanggungJawab||'—')} · Mulai: ${esc(it.tanggalMulai||'—')} · ${(it.siklus||[]).length} siklus PDSA</div>
+        </div>
+        ${pdsaStatusBadge(it.status)}
+      </div>
+      ${it.tujuan?`<div style="font-size:12.5px; margin-top:8px; white-space:normal;"><strong>Tujuan:</strong> ${esc(it.tujuan)}</div>`:''}
+      <div style="margin-top:6px;">${verifikasiBadgeHtml(it.statusVerifikasi)}</div>
+      <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-secondary" style="padding:5px 12px; font-size:12.5px;" onclick="openPdsaDetail('${facilityId}','${it.id}',${editable})">Kelola Siklus PDSA</button>
+        ${editable?`<button class="btn btn-ghost" style="padding:5px 12px; font-size:12.5px; color:var(--rust);" onclick="deleteRecordWithLog('mutu_proyek','${it.id}', ()=>loadPdsaList('${facilityId}',true))">Hapus</button>`:''}
+      </div>
+    </div>`).join('');
+}
+async function openPdsaDetail(facilityId, id, editable){
+  const old = document.getElementById('pdsa-detail-host2'); if(old) old.remove();
+  const host = document.createElement('div'); host.id='pdsa-detail-host2'; document.body.appendChild(host);
+  host.innerHTML = modalWrap('<div class="spinner"></div>');
+  try{
+    const snap = await db.collection('mutu_proyek').doc(id).get();
+    if(!snap.exists){ toast('Proyek tidak ditemukan.', 'error'); host.remove(); return; }
+    renderPdsaDetail(facilityId, id, snap.data(), editable);
+  }catch(e){ toast('Gagal memuat: '+e.message, 'error'); host.remove(); }
+}
+function renderPdsaDetail(facilityId, id, it, editable){
+  const host = document.getElementById('pdsa-detail-host2');
+  if(!host) return;
+  const siklus = it.siklus || [];
+  const files = buktiFilesOf(it);
+  const cycles = siklus.map((s,i)=>`
+    <div style="border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px;">
+      <div style="font-weight:700; font-size:12.5px; margin-bottom:6px; color:var(--teal-deep);">Siklus ${s.no||(i+1)} — ${esc(s.tanggal||'')}</div>
+      <div style="font-size:12px; margin-bottom:4px; white-space:normal;"><strong>Plan:</strong> ${esc(s.plan||'—')}</div>
+      ${s.prediksi?`<div style="font-size:11.5px; color:var(--ink-soft); margin-bottom:6px; white-space:normal;">Prediksi: ${esc(s.prediksi)}</div>`:''}
+      <div style="font-size:12px; margin-bottom:4px; white-space:normal;"><strong>Do:</strong> ${esc(s.do||'—')}</div>
+      ${s.hambatan?`<div style="font-size:11.5px; color:var(--ink-soft); margin-bottom:6px; white-space:normal;">Hambatan: ${esc(s.hambatan)}</div>`:''}
+      <div style="font-size:12px; margin-bottom:4px; white-space:normal;"><strong>Study:</strong> ${esc(s.study||'—')}</div>
+      ${s.pembelajaran?`<div style="font-size:11.5px; color:var(--ink-soft); margin-bottom:6px; white-space:normal;">Pembelajaran: ${esc(s.pembelajaran)}</div>`:''}
+      <div style="font-size:12px; white-space:normal;"><strong>Act:</strong> ${esc(s.act||'—')}${s.keputusan?' — <span style="font-weight:600;">'+esc(s.keputusan)+'</span>':''}</div>
+    </div>`).join('') || '<p style="font-size:12.5px; color:var(--ink-soft);">Belum ada siklus PDSA.</p>';
+  const canDel = editable && !lockedForFacility('mutu_proyek', it);
+  const form = editable ? `
+    <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:10px;">
+      <div style="font-weight:700; font-size:12.5px; margin-bottom:8px;">Tambah Siklus PDSA ke-${siklus.length+1}</div>
+      <label>Tanggal</label><input type="date" id="pd-tanggal" value="${todayISO()}" style="margin-bottom:10px;">
+      <label>Plan (rencana yang akan diuji)</label><textarea id="pd-plan" rows="2" style="margin-bottom:6px;"></textarea>
+      <label style="font-weight:400; font-size:11.5px;">Prediksi hasil (opsional)</label><input id="pd-prediksi" style="margin-bottom:10px;">
+      <label>Do (pelaksanaan &amp; temuan di lapangan)</label><textarea id="pd-do" rows="2" style="margin-bottom:6px;"></textarea>
+      <label style="font-weight:400; font-size:11.5px;">Hambatan (opsional)</label><input id="pd-hambatan" style="margin-bottom:10px;">
+      <label>Study (analisis hasil dibanding prediksi)</label><textarea id="pd-study" rows="2" style="margin-bottom:6px;"></textarea>
+      <label style="font-weight:400; font-size:11.5px;">Pembelajaran (opsional)</label><input id="pd-pembelajaran" style="margin-bottom:10px;">
+      <label>Act (keputusan &amp; rencana lanjut)</label><textarea id="pd-act" rows="2" style="margin-bottom:6px;"></textarea>
+      <label>Keputusan</label>
+      <select id="pd-keputusan" style="margin-bottom:12px;"><option value="">—</option>${PDSA_ACT_KEPUTUSAN.map(k=>`<option>${esc(k)}</option>`).join('')}</select>
+      <button class="btn btn-primary" style="margin-bottom:16px;" onclick="submitPdsaSiklus('${facilityId}','${id}')">Simpan Siklus</button>
+      <div style="border-top:1px solid var(--line); padding-top:12px; margin-bottom:12px;">
+        <label>Status Proyek</label>
+        <select id="pd-status" style="margin-bottom:10px;">${PDSA_STATUS.map(s=>`<option ${it.status===s?'selected':''}>${s}</option>`).join('')}</select>
+        <button class="btn btn-secondary" onclick="savePdsaStatus('${facilityId}','${id}')">Simpan Status</button>
+      </div>
+      ${newRecordBuktiFieldHtml('pdsa')}
+      <button class="btn btn-secondary" onclick="addPdsaBukti('${facilityId}','${id}')">Unggah Bukti Dukung</button>
+    </div>` : '';
+  host.innerHTML = modalWrap(`
+    <h3 class="serif" style="margin:0 0 4px;">${esc(it.judul)}</h3>
+    <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 4px;">${pdsaStatusBadge(it.status)} · PJ: ${esc(it.penanggungJawab||'—')} · Mulai: ${esc(it.tanggalMulai||'—')}</p>
+    ${it.latarBelakang?`<p style="font-size:12.5px; margin:8px 0 4px; white-space:normal;"><strong>Latar Belakang:</strong> ${esc(it.latarBelakang)}</p>`:''}
+    ${it.tujuan?`<p style="font-size:12.5px; margin:4px 0 14px; white-space:normal;"><strong>Tujuan:</strong> ${esc(it.tujuan)}</p>`:''}
+    <div style="font-size:12px; margin-bottom:10px;">${files.length? files.map((f,i)=>`<a href="${esc(f.url)}" target="_blank" rel="noopener">${files.length>1?'Bukti '+(i+1):'Bukti Dukung'}</a>`).join(' · ') : '<span style="color:var(--ink-soft);">Belum ada bukti dukung</span>'}</div>
+    <div style="margin-bottom:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      ${verifikasiBadgeHtml(it.statusVerifikasi)}
+      ${!editable?`<button class="btn btn-ghost" style="padding:3px 8px; font-size:11.5px;" onclick="openVerifikasiModal('mutu_proyek','${id}', ()=>{ document.getElementById('pdsa-detail-host2').remove(); loadPdsaList('${facilityId}',false,'pdsa-dinkes-list'); })">Verifikasi</button>`:''}
+      <button class="btn btn-ghost" style="padding:3px 8px; font-size:11.5px;" onclick="printPdsaProject('${facilityId}','${id}')">🖶 Cetak Laporan</button>
+      ${canDel?`<button class="btn btn-ghost" style="padding:3px 8px; font-size:11.5px; color:var(--rust);" onclick="deleteRecordWithLog('mutu_proyek','${id}', ()=>{ document.getElementById('pdsa-detail-host2').remove(); loadPdsaList('${facilityId}',true); })">Hapus Proyek</button>`:''}
+    </div>
+    <h4 style="font-size:13px; margin:14px 0 8px;">Siklus PDSA</h4>
+    <div style="max-height:300px; overflow-y:auto;">${cycles}</div>
+    ${form}
+    <div style="display:flex; justify-content:flex-end; margin-top:12px;"><button class="btn btn-ghost" onclick="document.getElementById('pdsa-detail-host2').remove()">Tutup</button></div>
+  `);
+}
+async function submitPdsaSiklus(facilityId, id){
+  const g = i => document.getElementById(i).value.trim();
+  const plan = g('pd-plan'), doo = g('pd-do'), study = g('pd-study'), act = g('pd-act');
+  if(!plan){ toast('Bagian Plan wajib diisi.', 'error'); return; }
+  try{
+    const ref = db.collection('mutu_proyek').doc(id);
+    const snap = await ref.get();
+    const cur = snap.data();
+    const siklus = (cur.siklus || []).slice();
+    siklus.push({ no: siklus.length+1, tanggal: document.getElementById('pd-tanggal').value,
+      plan, prediksi:g('pd-prediksi'), do:doo, hambatan:g('pd-hambatan'), study, pembelajaran:g('pd-pembelajaran'),
+      act, keputusan: document.getElementById('pd-keputusan').value });
+    await ref.update({siklus});
+    toast('Siklus PDSA tersimpan.');
+    const fresh = await ref.get();
+    renderPdsaDetail(facilityId, id, fresh.data(), true);
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+async function savePdsaStatus(facilityId, id){
+  try{
+    await db.collection('mutu_proyek').doc(id).update({status: document.getElementById('pd-status').value});
+    toast('Status proyek diperbarui.');
+    const fresh = await db.collection('mutu_proyek').doc(id).get();
+    renderPdsaDetail(facilityId, id, fresh.data(), true);
+    loadPdsaList(facilityId, true);
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+async function addPdsaBukti(facilityId, id){
+  const input = document.getElementById('pdsa-bukti-file');
+  if(!input || !input.files.length){ toast('Pilih file terlebih dahulu.', 'error'); return; }
+  try{
+    const ref = db.collection('mutu_proyek').doc(id);
+    const snap = await ref.get(); const d = snap.data();
+    const files = await uploadFiles(input.files, buildUploadMeta(facilityId, 'Proyek-Mutu-PDSA', currentPeriod(), ''), null);
+    if(!files) return;
+    await ref.update(evidencePatch(buktiFilesOf(d).concat(files)));
+    toast('Bukti dukung ditambahkan.');
+    const fresh = await ref.get();
+    renderPdsaDetail(facilityId, id, fresh.data(), true);
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+async function printPdsaProject(facilityId, id){
+  try{
+    const snap = await db.collection('mutu_proyek').doc(id).get();
+    if(!snap.exists){ toast('Proyek tidak ditemukan.', 'error'); return; }
+    const it = snap.data();
+    const fac = STATE.facilities.find(f=>f.id===facilityId);
+    let pjName='', pjNip='';
+    if(STATE.profile && STATE.profile.facilityId===facilityId){ pjName=STATE.profile.name||''; pjNip=STATE.profile.nip||''; }
+    else{
+      try{ const s2 = await db.collection('users').where('facilityId','==',facilityId).limit(1).get(); if(!s2.empty){ const u=s2.docs[0].data(); pjName=u.name||''; pjNip=u.nip||''; } }catch(e){}
+    }
+    const siklus = it.siklus || [];
+    const cyclesHtml = siklus.length ? siklus.map(s=>`
+      <div style="margin-bottom:12px; page-break-inside:avoid;">
+        <div style="font-weight:700; font-size:12px; margin-bottom:4px;">Siklus ${s.no} — ${esc(s.tanggal||'')}</div>
+        <table style="width:100%; font-size:11px; border-collapse:collapse;">
+          <tr><td style="width:70px; vertical-align:top; font-weight:600; padding:3px; border:1px solid #ccc;">Plan</td><td style="padding:3px; border:1px solid #ccc;">${esc(s.plan||'—')}${s.prediksi?'<br><i>Prediksi: '+esc(s.prediksi)+'</i>':''}</td></tr>
+          <tr><td style="vertical-align:top; font-weight:600; padding:3px; border:1px solid #ccc;">Do</td><td style="padding:3px; border:1px solid #ccc;">${esc(s.do||'—')}${s.hambatan?'<br><i>Hambatan: '+esc(s.hambatan)+'</i>':''}</td></tr>
+          <tr><td style="vertical-align:top; font-weight:600; padding:3px; border:1px solid #ccc;">Study</td><td style="padding:3px; border:1px solid #ccc;">${esc(s.study||'—')}${s.pembelajaran?'<br><i>Pembelajaran: '+esc(s.pembelajaran)+'</i>':''}</td></tr>
+          <tr><td style="vertical-align:top; font-weight:600; padding:3px; border:1px solid #ccc;">Act</td><td style="padding:3px; border:1px solid #ccc;">${esc(s.act||'—')}${s.keputusan?'<br><b>Keputusan: '+esc(s.keputusan)+'</b>':''}</td></tr>
+        </table>
+      </div>`).join('') : '<p style="font-size:12px; color:#666;">Belum ada siklus PDSA.</p>';
+    const html = printHeader('Proyek Peningkatan Mutu (PDSA)', it.judul, fac?fac.name:'', null, fac?fac.alamat:'', fac?fac.type:'') +
+      `<div style="font-size:12px; font-family:'Manrope',sans-serif; margin-bottom:14px;">
+        <div><strong>Status:</strong> ${esc(it.status||'Berjalan')} &nbsp; <strong>Penanggung Jawab:</strong> ${esc(it.penanggungJawab||'—')} &nbsp; <strong>Tanggal Mulai:</strong> ${esc(it.tanggalMulai||'—')}</div>
+        ${it.latarBelakang?'<div style="margin-top:8px;"><strong>Latar Belakang:</strong> '+esc(it.latarBelakang)+'</div>':''}
+        ${it.tujuan?'<div style="margin-top:4px;"><strong>Tujuan:</strong> '+esc(it.tujuan)+'</div>':''}
+      </div>
+      <h4 style="font-size:13px; margin:14px 0 8px;">Siklus PDSA</h4>
+      ${cyclesHtml}` +
+      printSignatureBlock(fac, pjName, pjNip, false);
+    document.getElementById('print-area').innerHTML = html;
+    setTimeout(()=>window.print(), 150);
+  }catch(e){ toast('Gagal menyiapkan cetakan: '+e.message, 'error'); }
+}
+function viewFacPdsa(fac){
+  const facilityId = fac ? fac.id : STATE.profile.facilityId;
+  const content = `${pdsaFormHtml(facilityId)}
+    <h3 class="serif" style="margin:0 0 10px; font-size:16px;">Daftar Proyek Peningkatan Mutu</h3>
+    <div id="pdsa-list"><div class="spinner"></div></div>`;
+  setTimeout(()=>loadPdsaList(facilityId, true), 30);
+  return ['Proyek Peningkatan Mutu (PDSA)', fac?fac.name:'', content];
+}
+function viewDinkesPdsa(){
+  const opts = STATE.facilities.filter(f=>f.active!==false).map(f=>`<option value="${f.id}" ${STATE.selectedFacilityId===f.id?'selected':''}>${esc(f.name)}</option>`).join('');
+  const fid = STATE.selectedFacilityId || (STATE.facilities[0] && STATE.facilities[0].id);
+  if(!STATE.selectedFacilityId && fid) STATE.selectedFacilityId = fid;
+  const content = `
+    <div style="margin-bottom:14px;"><select style="width:auto; min-width:240px;" onchange="STATE.selectedFacilityId=this.value; renderDinkesShell();">${opts}</select></div>
+    <div id="pdsa-dinkes-list"><div class="spinner"></div></div>`;
+  if(fid) setTimeout(()=>loadPdsaList(fid, false, 'pdsa-dinkes-list'), 30);
+  return ['Proyek Peningkatan Mutu (PDSA)', 'Pantau proyek perbaikan mutu berkelanjutan per fasilitas', content];
 }
 
 /* -- Bundle HAIs (Bundle ISK/CAUTI, PLABSI, IDO) -- */
@@ -3633,7 +3864,7 @@ const MIME_BY_EXT = {pdf:'application/pdf', xls:'application/vnd.ms-excel', xlsx
   doc:'application/msword', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ppt:'application/vnd.ms-powerpoint',
   pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', txt:'text/plain', zip:'application/zip'};
 const BUKTI_MODULE_BY_PREFIX = {ikp:'IKP', pj:'PPI-Laporan-Pajanan', chk:'PPI-Daftar-Tilik', ad:'PPI-Audit-Kualitas', f1:'Audit-Hasil-Indikator', tm:'Audit-Temuan',
-  rr:'Risiko-Register', rp:'Risiko-Profil', pm:'Risiko-Pemantauan', mf:'MFK-Register-Risiko', k3p:'K3-Pemetaan', k3r:'K3-Perencanaan', b3:'K3-Inventaris-B3', rtl:'RTL-Indikator-Mutu-Prioritas', icra:'PPI-ICRA', bundle:'PPI-Bundle-HAIs'};
+  rr:'Risiko-Register', rp:'Risiko-Profil', pm:'Risiko-Pemantauan', mf:'MFK-Register-Risiko', k3p:'K3-Pemetaan', k3r:'K3-Perencanaan', b3:'K3-Inventaris-B3', rtl:'RTL-Indikator-Mutu-Prioritas', icra:'PPI-ICRA', bundle:'PPI-Bundle-HAIs', pdsa:'Proyek-Mutu-PDSA'};
 let __uploadBusy = false;
 
 /* ---------- Perbaikan: nama sheet Excel maks 31 karakter & tanpa karakter terlarang ---------- */
@@ -4547,16 +4778,16 @@ async function clearPmpIndicatorValue(facilityId, period, itemId, level){
    ===================================================================== */
 const MODUL_LABEL = {ikp_reports:'IKP', ppi_pajanan:'PPI — Laporan Pajanan', ppi_checklist:'PPI — Daftar Tilik', ppi_audit:'PPI — Audit Kualitas', ppi_icra:'PPI — ICRA',
   audit_form1:'Audit — Hasil Indikator', audit_temuan:'Audit — Temuan', risk_register:'Risiko — Register', risk_profil:'Risiko — Profil', risk_pemantauan:'Risiko — Pemantauan',
-  mfk_register:'MFK — Register Risiko', k3_pemetaan:'K3 — Pemetaan', k3_perencanaan:'K3 — Perencanaan', k3_b3:'K3 — Inventaris B3', inm_reports:'INM', pmp_reports:'Indikator Mutu Prioritas', pmp_rtl:'RTL Indikator Mutu Prioritas', ppi_bundle:'PPI — Bundle HAIs'};
+  mfk_register:'MFK — Register Risiko', k3_pemetaan:'K3 — Pemetaan', k3_perencanaan:'K3 — Perencanaan', k3_b3:'K3 — Inventaris B3', inm_reports:'INM', pmp_reports:'Indikator Mutu Prioritas', pmp_rtl:'RTL Indikator Mutu Prioritas', ppi_bundle:'PPI — Bundle HAIs', mutu_proyek:'Proyek Mutu (PDSA)'};
 const BUKTI_MODULE_BY_COLLECTION = {ikp_reports:'IKP', ppi_pajanan:'PPI-Laporan-Pajanan', ppi_checklist:'PPI-Daftar-Tilik', ppi_audit:'PPI-Audit-Kualitas', ppi_icra:'PPI-ICRA', ppi_bundle:'PPI-Bundle-HAIs',
   audit_form1:'Audit-Hasil-Indikator', audit_temuan:'Audit-Temuan', risk_register:'Risiko-Register', risk_profil:'Risiko-Profil', risk_pemantauan:'Risiko-Pemantauan',
-  mfk_register:'MFK-Register-Risiko', k3_pemetaan:'K3-Pemetaan', k3_perencanaan:'K3-Perencanaan', k3_b3:'K3-Inventaris-B3', pmp_rtl:'RTL-Indikator-Mutu-Prioritas'};
+  mfk_register:'MFK-Register-Risiko', k3_pemetaan:'K3-Pemetaan', k3_perencanaan:'K3-Perencanaan', k3_b3:'K3-Inventaris-B3', pmp_rtl:'RTL-Indikator-Mutu-Prioritas', mutu_proyek:'Proyek-Mutu-PDSA'};
 
 function recordSummary(collection, d){
   const cut = (s,n)=>String(s||'').substring(0,n);
   const m = {
     ikp_reports: x=>[x.tanggal, x.unit, cut(x.deskripsi,60)], ppi_pajanan: x=>[x.tanggalLaporan, x.nama], ppi_checklist: x=>[x.period, x.ruang],
-    ppi_audit: x=>[x.tanggal, x.ruang], ppi_icra: x=>[x.uraian, 'Skor '+x.score], ppi_bundle: x=>[x.tanggal, (BUNDLE_HAIS[x.jenisBundle]||{}).label||x.jenisBundle, x.skor!=null?'Kepatuhan '+x.skor+'%':''], audit_form1: x=>[x.tanggal, cut(x.indikator,60)], audit_temuan: x=>[x.tanggal, cut(x.temuan,60)],
+    ppi_audit: x=>[x.tanggal, x.ruang], ppi_icra: x=>[x.uraian, 'Skor '+x.score], ppi_bundle: x=>[x.tanggal, (BUNDLE_HAIS[x.jenisBundle]||{}).label||x.jenisBundle, x.skor!=null?'Kepatuhan '+x.skor+'%':''], mutu_proyek: x=>[x.judul, x.status], audit_form1: x=>[x.tanggal, cut(x.indikator,60)], audit_temuan: x=>[x.tanggal, cut(x.temuan,60)],
     risk_register: x=>[x.kodeRisiko, cut(x.risiko,60)], risk_profil: x=>[x.kodeRisiko, cut(x.risikoPrioritas,60)], risk_pemantauan: x=>[x.kodeRisiko, x.trendRisiko],
     mfk_register: x=>[x.unitKerja, cut(x.risiko,60)], k3_pemetaan: x=>[x.klaster, x.ruangPelayanan], k3_perencanaan: x=>[x.klaster, cut(x.kegiatan,60)],
     k3_b3: x=>[x.bulan, x.namaBahan], inm_reports: x=>['Periode '+x.period], pmp_reports: x=>['Periode '+x.period+(x.level==='fasyankes'?' (Tahunan)':'')],
