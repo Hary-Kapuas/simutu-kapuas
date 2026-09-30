@@ -207,11 +207,40 @@ const SUMBER_PAJANAN_OPTIONS = ['Darah','Sputum','Air Liur','Feses','Lain-lain']
 const PPI_CHECKLIST_CATEGORIES = [
   {cat:'Cuci Tangan', items:['Air bersih mengalir','Sabun cair','Lap kering dan bersih','Petugas tampak mencuci tangan dan mengeringkan tangan','Melepas sarung tangan setelah kontak dengan pasien']},
   {cat:'Alat Pelindung', items:['Sarung tangan bersih','Sarung tangan steril','Sarung tangan rumah tangga','Masker','Gaun/Schort','Pelindung wajah','Pelindung kaki','Tutup kepala']},
+  {cat:'Pengendalian Lingkungan', items:['Air bersih tersedia cukup dan memenuhi syarat kesehatan','Sistem ventilasi (alami/mekanik) berfungsi baik dan tidak mengarah ke ruang tunggu/lalu lalang','Permukaan lingkungan (lantai, dinding, meja, tempat tidur) bersih dan dibersihkan berkala','Pengelolaan limbah cair sesuai standar (saluran/IPAL, tidak mencemari)']},
   {cat:'Dekontaminasi Alat', items:['Larutan klorin 0,5%','Wadah plastik','Alat direndam dalam klorin 10 menit','Alat steril disimpan dalam wadah kering dan bersih']},
   {cat:'Pengelolaan Alat Tajam', items:['Wadah tahan tusukan','Isi wadah kurang dari 3/4 penuh','Tidak ada bagian tajam yang keluar','Jarum tidak disarungkan','Penyarungan satu tangan']},
   {cat:'Limbah', items:['Sampah dipisahkan sesuai jenis','Tidak ada sampah terkontaminasi','Incenerator dan/atau IPAL berfungsi dengan baik']},
+  {cat:'Pengelolaan Linen', items:['Petugas memakai APD lengkap (topi, apron, masker, sarung tangan rumah tangga, sepatu boot) saat menangani linen','Linen kotor tidak diletakkan/ditarik di lantai','Troli/kantong linen kotor dan linen bersih terpisah','Pencucian linen kotor & infeksius terpisah (mesin/waktu berbeda), pakai air panas atau disinfektan sesuai standar']},
+  {cat:'Penyuntikan Yang Aman', items:['Satu spuit, satu jenis obat, satu prosedur untuk satu pasien','Tidak melakukan re-capping/mematahkan/menekuk jarum, langsung dibuang ke safety box','Obat single dose tidak diberikan ke lebih dari satu pasien; cairan pelarut/flushing tidak dipakai bersama','Sarung tangan dipakai bila berisiko terpapar darah, satu sarung tangan untuk satu pasien']},
+  {cat:'Kebersihan Pernapasan/Etika Batuk', items:['Petugas/pasien/pengunjung menerapkan etika batuk (tutup mulut dengan tisu/lengan atas) saat batuk, bersin, atau flu','Masker bedah dipakai dengan benar dan tidak digantung di leher untuk dipakai ulang','Tisu bekas dibuang ke tempat sampah, dilanjutkan kebersihan tangan']},
+  {cat:'Penempatan Pasien', items:['Pasien dengan risiko transmisi (kontak/droplet/airborne) ditempatkan di ruang terpisah atau dikohorting sesuai jenis penyakit','Jarak antar pasien di ruang tunggu/triase minimal 1 meter','Ventilasi ruang isolasi/pemeriksaan pasien infeksius mengarah keluar, tidak ke area lalu lalang']},
+  {cat:'Perlindungan Kesehatan Petugas', items:['Petugas melakukan kebersihan tangan segera saat tiba di tempat kerja','Baju kerja berbeda dengan baju yang dipakai dari rumah','Tidak memakai aksesoris di tangan (cincin, gelang, jam) dan kuku tidak panjang saat tindakan medis','Petugas berisiko tinggi mendapat pemeriksaan kesehatan berkala dan imunisasi (mis. Hepatitis B)']},
 ];
 const PPI_RATING_SCALE = [{v:5,label:'Sangat Baik'},{v:4,label:'Baik'},{v:3,label:'Cukup'},{v:2,label:'Kurang'},{v:1,label:'Sangat Kurang'}];
+/* ICRA (Identifikasi & Penilaian Risiko Infeksi) — skala sesuai Pedoman Teknis PPI di FKTP, Kemenkes 2020 (Tabel 49-51) */
+const ICRA_PROBABILITAS = [
+  {v:1, label:'1 — Sangat Rendah', desc:'0-5%, hampir tidak mungkin terjadi (>5 tahun)'},
+  {v:2, label:'2 — Rendah', desc:'Jarang, 1-2x/tahun (2-5 tahun)'},
+  {v:3, label:'3 — Medium', desc:'Kadang, 3-4x/tahun (tiap 1-2 tahun)'},
+  {v:4, label:'4 — Tinggi', desc:'Agak sering, 4-6x/tahun (beberapa kali setahun)'},
+  {v:5, label:'5 — Sangat Tinggi', desc:'Sering, >6x/tahun (tiap minggu/bulan)'},
+];
+const ICRA_DAMPAK = [
+  {v:1, label:'1 — Minimal Klinis', desc:'Tidak ada cedera'},
+  {v:2, label:'2 — Moderate Klinis', desc:'Cedera ringan, dapat diatasi P3K'},
+  {v:3, label:'3 — Lama Hari Rawat', desc:'Cedera sedang, memperpanjang hari rawat'},
+  {v:4, label:'4 — Kehilangan Fungsi', desc:'Cedera luas/berat, kehilangan fungsi tubuh sementara'},
+  {v:5, label:'5 — Katastropik', desc:'Kematian yang tidak berhubungan dengan perjalanan penyakit'},
+];
+const ICRA_SISTEM = [
+  {v:1, label:'1 — Solid', desc:'Peraturan ada, fasilitas ada, dilaksanakan'},
+  {v:2, label:'2 — Good', desc:'Peraturan ada, fasilitas ada, tidak selalu dilaksanakan'},
+  {v:3, label:'3 — Fair', desc:'Peraturan ada, fasilitas ada, tidak dilaksanakan'},
+  {v:4, label:'4 — Poor', desc:'Peraturan ada, fasilitas tidak ada, tidak dilaksanakan'},
+  {v:5, label:'5 — None', desc:'Tidak ada peraturan'},
+];
+function icraScore(p,d,s){ return (Number(p)||0)*(Number(d)||0)*(Number(s)||0); }
 function ppiCategoryFromPct(pct){
   if(pct>=90) return 'Sangat Baik';
   if(pct>=70) return 'Baik';
@@ -1863,7 +1892,7 @@ async function deleteIkpReport(id, facilityId){
 
 /* ================= PPI — Facility side ================= */
 function ppiSubNav(active, isDinkes){
-  const tabs = [{id:'pajanan',label:'Laporan Pajanan'},{id:'checklist',label:'Daftar Tilik PPI'},{id:'audit',label:'Audit Kualitas PPI'}];
+  const tabs = [{id:'pajanan',label:'Laporan Pajanan'},{id:'checklist',label:'Daftar Tilik PPI'},{id:'audit',label:'Audit Kualitas PPI'},{id:'icra',label:'ICRA'}];
   return `<div style="display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;">${tabs.map(t=>`
     <button class="btn ${active===t.id?'btn-primary':'btn-secondary'}" style="padding:7px 13px; font-size:13px;"
       onclick="${isDinkes?`STATE.dinkesPpiSub='${t.id}'; renderDinkesShell();`:`STATE.facPpiSub='${t.id}'; renderFacilityShell();`}">${t.label}</button>`).join('')}</div>`;
@@ -1875,11 +1904,13 @@ function viewFacPPI(fac){
   if(sub==='pajanan') inner = ppiPajananFormHtml() + `<h3 class="serif" style="margin:24px 0 10px; font-size:16px;">Riwayat Laporan Pajanan</h3><div id="ppi-pajanan-list"><div class="spinner"></div></div>${printExportToolbar('Laporan Pajanan PPI', fac?fac.name:'', '#ppi-pajanan-list', 'PPI_Pajanan.xlsx', facilityId, null)}`;
   if(sub==='checklist') inner = ppiChecklistFormHtml() + `<h3 class="serif" style="margin:24px 0 10px; font-size:16px;">Riwayat Daftar Tilik</h3><div id="ppi-checklist-list"><div class="spinner"></div></div>${printExportToolbar('Daftar Tilik PPI', fac?fac.name:'', '#ppi-checklist-list', 'PPI_DaftarTilik.xlsx', facilityId, null)}`;
   if(sub==='audit') inner = ppiAuditFormHtml() + `<h3 class="serif" style="margin:24px 0 10px; font-size:16px;">Riwayat Audit Kualitas PPI</h3><div id="ppi-audit-list"><div class="spinner"></div></div>${printExportToolbar('Audit Kualitas PPI', fac?fac.name:'', '#ppi-audit-list', 'PPI_Audit.xlsx', facilityId, null)}`;
+  if(sub==='icra') inner = icraFormHtml(facilityId) + `<h3 class="serif" style="margin:24px 0 10px; font-size:16px;">Daftar ICRA</h3><div id="ppi-icra-list"><div class="spinner"></div></div>${printExportToolbar('ICRA — Identifikasi & Pengendalian Risiko Infeksi', fac?fac.name:'', '#ppi-icra-list', 'PPI_ICRA.xlsx', facilityId, null)}`;
   const content = ppiSubNav(sub,false) + inner;
   setTimeout(()=>{
     if(sub==='pajanan') loadPpiPajananList(facilityId);
     if(sub==='checklist') loadPpiChecklistList(facilityId);
     if(sub==='audit') loadPpiAuditList(facilityId);
+    if(sub==='icra'){ updateIcraScorePreview(); loadIcraList(facilityId, true); }
     updatePpiChecklistPreview();
   }, 30);
   return ['Pencegahan & Pengendalian Infeksi (PPI)', fac?fac.name:'', content];
@@ -2116,6 +2147,117 @@ async function deletePpiDoc(collection, id, kind){
   }catch(e){ toast('Gagal menghapus: '+e.message, 'error'); }
 }
 
+/* -- ICRA (Identifikasi & Pengendalian Risiko Infeksi) -- */
+function icraSelectHtml(id, arr, onchange){
+  return `<select id="${id}" ${onchange?`onchange="${onchange}"`:''}>${arr.map(x=>`<option value="${x.v}" title="${esc(x.desc)}">${esc(x.label)}</option>`).join('')}</select>`;
+}
+function icraFormHtml(facilityId){
+  return `<div class="card" style="padding:18px; max-width:760px;">
+    <h3 class="serif" style="margin:0 0 4px; font-size:16px;">Tambah ICRA (Identifikasi &amp; Pengendalian Risiko Infeksi)</h3>
+    <p style="font-size:12px; color:var(--ink-soft); margin:0 0 14px;">Mengacu Pedoman Teknis PPI di FKTP (Kemenkes, 2020). Skor = Probabilitas × Dampak × Sistem — makin tinggi skor, makin prioritas untuk ditangani.</p>
+    <label>Uraian / Area Risiko Infeksi</label>
+    <input id="icra-uraian" placeholder="Contoh: Plebitis, ISK, PLABSI, kepatuhan cuci tangan, dsb." style="margin-bottom:12px;">
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:6px;">
+      <div><label>Probabilitas</label>${icraSelectHtml('icra-p', ICRA_PROBABILITAS, 'updateIcraScorePreview()')}</div>
+      <div><label>Dampak</label>${icraSelectHtml('icra-d', ICRA_DAMPAK, 'updateIcraScorePreview()')}</div>
+      <div><label>Sistem (peraturan/pelaksanaan)</label>${icraSelectHtml('icra-s', ICRA_SISTEM, 'updateIcraScorePreview()')}</div>
+    </div>
+    <div id="icra-score-preview" style="margin-bottom:14px; padding:10px 12px; background:var(--paper); border-radius:8px; font-size:13.5px; font-weight:600;"></div>
+    <div style="border-top:1px solid var(--line); padding-top:12px;">
+      <div style="font-weight:700; font-size:12.5px; color:var(--ink-soft); margin-bottom:8px;">Plan of Action (POA)</div>
+      <label>Tujuan Umum</label><input id="icra-tujuanumum" style="margin-bottom:10px;">
+      <label>Tujuan Khusus</label><input id="icra-tujuankhusus" style="margin-bottom:10px;">
+      <label>Strategi / Rencana Tindak Lanjut</label><textarea id="icra-strategi" rows="2" style="margin-bottom:10px;"></textarea>
+      <label>Evaluasi &amp; Progres (bisa dilengkapi belakangan)</label><textarea id="icra-evaluasi" rows="2" style="margin-bottom:12px;"></textarea>
+    </div>
+    ${newRecordBuktiFieldHtml('icra')}
+    <button class="btn btn-primary" onclick="submitIcra('${facilityId}')">Simpan ICRA</button>
+  </div>`;
+}
+function updateIcraScorePreview(){
+  const p=document.getElementById('icra-p'), d=document.getElementById('icra-d'), s=document.getElementById('icra-s');
+  const box = document.getElementById('icra-score-preview');
+  if(!p||!d||!s||!box) return;
+  box.textContent = 'Skor risiko: '+icraScore(p.value,d.value,s.value)+' (dari maksimal 125) — semakin tinggi, semakin prioritas.';
+}
+async function submitIcra(facilityId){
+  const g = id => document.getElementById(id).value.trim();
+  const uraian = g('icra-uraian');
+  if(!uraian){ toast('Uraian/area risiko wajib diisi.', 'error'); return; }
+  const p=Number(document.getElementById('icra-p').value), d=Number(document.getElementById('icra-d').value), s=Number(document.getElementById('icra-s').value);
+  const bukti = await maybeUploadBukti('icra');
+  if(!bukti.ok) return;
+  try{
+    const payload = { facilityId, uraian, probabilitas:p, dampak:d, sistem:s, score:icraScore(p,d,s),
+      tujuanUmum:g('icra-tujuanumum'), tujuanKhusus:g('icra-tujuankhusus'), strategi:g('icra-strategi'), evaluasi:g('icra-evaluasi'),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: STATE.user.uid };
+    applyBukti(payload, bukti);
+    await db.collection('ppi_icra').add(payload);
+    toast('ICRA tersimpan.');
+    renderFacilityShell();
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+async function loadIcraList(facilityId, editable, targetId){
+  const el = document.getElementById(targetId || (editable?'ppi-icra-list':'ppi-icra-dinkes-list'));
+  if(!el) return;
+  let items = [];
+  try{
+    const snap = await db.collection('ppi_icra').where('facilityId','==',facilityId).get();
+    items = snap.docs.map(x=>({id:x.id, ...x.data()}));
+    items.sort((a,b)=> (b.score||0)-(a.score||0));
+  }catch(e){ toast('Gagal memuat ICRA: '+e.message, 'error'); }
+  if(items.length===0){ el.innerHTML = `<div class="card" style="padding:18px; text-align:center; color:var(--ink-soft);">Belum ada ICRA tercatat.</div>`; return; }
+  el.innerHTML = `<div class="card scrollx" style="padding:4px;"><table>
+    <thead><tr><th>Rangking</th><th style="min-width:160px;">Uraian</th><th>P</th><th>D</th><th>S</th><th>Skor</th><th>Strategi / RTL</th>${buktiTh()}<th></th></tr></thead>
+    <tbody>${items.map((it,i)=>`<tr>
+      <td style="font-weight:700;">${i+1}</td>
+      <td style="white-space:normal; min-width:160px;">${esc(it.uraian)}</td>
+      <td>${it.probabilitas}</td><td>${it.dampak}</td><td>${it.sistem}</td>
+      <td style="font-weight:700;">${it.score}</td>
+      <td style="white-space:normal; min-width:200px;">${esc(it.strategi||'—')}${it.evaluasi?`<div style="font-size:11.5px; color:var(--ink-soft); margin-top:3px;">Evaluasi: ${esc(it.evaluasi)}</div>`:''}</td>
+      ${buktiTd(it,'ppi_icra', editable?'null':`loadIcraListDinkes`, !editable)}
+      <td class="no-print" style="white-space:nowrap;">${editable?`<button class="btn btn-ghost" style="padding:3px 7px; font-size:11.5px; display:block; margin-bottom:3px;" onclick="editIcraModal('${facilityId}','${it.id}')">Ubah</button><button class="btn btn-ghost" style="padding:3px 7px; font-size:11.5px; color:var(--rust);" onclick="deleteRecordWithLog('ppi_icra','${it.id}', ()=>loadIcraList('${facilityId}',true))">Hapus</button>`:''}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+async function editIcraModal(facilityId, id){
+  try{
+    const snap = await db.collection('ppi_icra').doc(id).get();
+    if(!snap.exists){ toast('Data tidak ditemukan.', 'error'); return; }
+    const it = snap.data();
+    const old = document.getElementById('icra-edit-modal-host'); if(old) old.remove();
+    const host = document.createElement('div'); host.id='icra-edit-modal-host'; document.body.appendChild(host);
+    host.innerHTML = modalWrap(`
+      <h3 class="serif" style="margin:0 0 14px;">Ubah ICRA</h3>
+      <label>Uraian / Area Risiko</label><input id="ie-uraian" value="${esc(it.uraian)}" style="margin-bottom:12px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:6px;">
+        <div><label>Probabilitas</label><select id="ie-p">${ICRA_PROBABILITAS.map(x=>`<option value="${x.v}" ${it.probabilitas===x.v?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>
+        <div><label>Dampak</label><select id="ie-d">${ICRA_DAMPAK.map(x=>`<option value="${x.v}" ${it.dampak===x.v?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>
+        <div><label>Sistem</label><select id="ie-s">${ICRA_SISTEM.map(x=>`<option value="${x.v}" ${it.sistem===x.v?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>
+      </div>
+      <label>Tujuan Umum</label><input id="ie-tujuanumum" value="${esc(it.tujuanUmum||'')}" style="margin-bottom:10px;">
+      <label>Tujuan Khusus</label><input id="ie-tujuankhusus" value="${esc(it.tujuanKhusus||'')}" style="margin-bottom:10px;">
+      <label>Strategi / Rencana Tindak Lanjut</label><textarea id="ie-strategi" rows="2" style="margin-bottom:10px;">${esc(it.strategi||'')}</textarea>
+      <label>Evaluasi &amp; Progres</label><textarea id="ie-evaluasi" rows="2" style="margin-bottom:16px;">${esc(it.evaluasi||'')}</textarea>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="document.getElementById('icra-edit-modal-host').remove()">Batal</button>
+        <button class="btn btn-primary" onclick="saveIcraEdit('${facilityId}','${id}')">Simpan</button>
+      </div>`);
+  }catch(e){ toast('Gagal memuat: '+e.message, 'error'); }
+}
+async function saveIcraEdit(facilityId, id){
+  const g = i => document.getElementById(i).value.trim();
+  const uraian = g('ie-uraian');
+  if(!uraian){ toast('Uraian wajib diisi.', 'error'); return; }
+  const p=Number(document.getElementById('ie-p').value), d=Number(document.getElementById('ie-d').value), s=Number(document.getElementById('ie-s').value);
+  try{
+    await db.collection('ppi_icra').doc(id).update({ uraian, probabilitas:p, dampak:d, sistem:s, score:icraScore(p,d,s),
+      tujuanUmum:g('ie-tujuanumum'), tujuanKhusus:g('ie-tujuankhusus'), strategi:g('ie-strategi'), evaluasi:g('ie-evaluasi') });
+    toast('ICRA diperbarui.');
+    const host = document.getElementById('icra-edit-modal-host'); if(host) host.remove();
+    loadIcraList(facilityId, true);
+  }catch(e){ toast('Gagal menyimpan: '+e.message, 'error'); }
+}
+
 /* ================= PPI — Dinkes side (recap) ================= */
 let ppiDinkesFacility='all';
 function viewDinkesPPI(){
@@ -2124,13 +2266,22 @@ function viewDinkesPPI(){
   const content = ppiSubNav(sub,true) + `
     <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
       <select style="width:auto; min-width:200px;" onchange="ppiDinkesFacility=this.value; renderDinkesShell();">${facOpts}</select>
-      <button class="btn btn-secondary" onclick="exportPpiXlsx('${sub}')">⤓ Ekspor (.xlsx)</button>
+      ${sub!=='icra'?`<button class="btn btn-secondary" onclick="exportPpiXlsx('${sub}')">⤓ Ekspor (.xlsx)</button>`:''}
     </div>
     <div id="ppi-dinkes-body"><div class="spinner"></div></div>
     ${printExportToolbar('Laporan PPI', sub, '#ppi-dinkes-body', 'PPI_'+sub+'.xlsx', ppiDinkesFacility!=='all'?ppiDinkesFacility:null, null)}
   `;
-  setTimeout(()=>loadPpiDinkesRecap(sub), 30);
-  return ['PPI — Pencegahan & Pengendalian Infeksi', 'Rekap laporan pajanan, daftar tilik, dan audit kualitas PPI', content];
+  setTimeout(()=>{ sub==='icra' ? loadIcraListDinkes() : loadPpiDinkesRecap(sub); }, 30);
+  return ['PPI — Pencegahan & Pengendalian Infeksi', 'Rekap laporan pajanan, daftar tilik, audit kualitas, dan ICRA', content];
+}
+async function loadIcraListDinkes(){
+  const el = document.getElementById('ppi-dinkes-body');
+  if(!el) return;
+  if(ppiDinkesFacility==='all'){
+    el.innerHTML = `<div class="card" style="padding:20px; text-align:center; color:var(--ink-soft);">Pilih satu fasilitas untuk melihat rangking ICRA-nya (rangking dihitung per fasilitas).</div>`;
+    return;
+  }
+  await loadIcraList(ppiDinkesFacility, false, 'ppi-dinkes-body');
 }
 let ppiDinkesCache = {pajanan:null, checklist:null, audit:null};
 async function loadPpiDinkesRecap(sub){
@@ -3268,7 +3419,7 @@ const MIME_BY_EXT = {pdf:'application/pdf', xls:'application/vnd.ms-excel', xlsx
   doc:'application/msword', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ppt:'application/vnd.ms-powerpoint',
   pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', txt:'text/plain', zip:'application/zip'};
 const BUKTI_MODULE_BY_PREFIX = {ikp:'IKP', pj:'PPI-Laporan-Pajanan', chk:'PPI-Daftar-Tilik', ad:'PPI-Audit-Kualitas', f1:'Audit-Hasil-Indikator', tm:'Audit-Temuan',
-  rr:'Risiko-Register', rp:'Risiko-Profil', pm:'Risiko-Pemantauan', mf:'MFK-Register-Risiko', k3p:'K3-Pemetaan', k3r:'K3-Perencanaan', b3:'K3-Inventaris-B3', rtl:'RTL-Indikator-Mutu-Prioritas'};
+  rr:'Risiko-Register', rp:'Risiko-Profil', pm:'Risiko-Pemantauan', mf:'MFK-Register-Risiko', k3p:'K3-Pemetaan', k3r:'K3-Perencanaan', b3:'K3-Inventaris-B3', rtl:'RTL-Indikator-Mutu-Prioritas', icra:'PPI-ICRA'};
 let __uploadBusy = false;
 
 /* ---------- Perbaikan: nama sheet Excel maks 31 karakter & tanpa karakter terlarang ---------- */
@@ -4180,10 +4331,10 @@ async function clearPmpIndicatorValue(facilityId, period, itemId, level){
    - Bukti dukung modul non-INM/PMP bisa diganti tanpa menghapus catatan
    - Dinkes bisa menghapus data fasilitas (dengan alasan)
    ===================================================================== */
-const MODUL_LABEL = {ikp_reports:'IKP', ppi_pajanan:'PPI — Laporan Pajanan', ppi_checklist:'PPI — Daftar Tilik', ppi_audit:'PPI — Audit Kualitas',
+const MODUL_LABEL = {ikp_reports:'IKP', ppi_pajanan:'PPI — Laporan Pajanan', ppi_checklist:'PPI — Daftar Tilik', ppi_audit:'PPI — Audit Kualitas', ppi_icra:'PPI — ICRA',
   audit_form1:'Audit — Hasil Indikator', audit_temuan:'Audit — Temuan', risk_register:'Risiko — Register', risk_profil:'Risiko — Profil', risk_pemantauan:'Risiko — Pemantauan',
   mfk_register:'MFK — Register Risiko', k3_pemetaan:'K3 — Pemetaan', k3_perencanaan:'K3 — Perencanaan', k3_b3:'K3 — Inventaris B3', inm_reports:'INM', pmp_reports:'Indikator Mutu Prioritas', pmp_rtl:'RTL Indikator Mutu Prioritas'};
-const BUKTI_MODULE_BY_COLLECTION = {ikp_reports:'IKP', ppi_pajanan:'PPI-Laporan-Pajanan', ppi_checklist:'PPI-Daftar-Tilik', ppi_audit:'PPI-Audit-Kualitas',
+const BUKTI_MODULE_BY_COLLECTION = {ikp_reports:'IKP', ppi_pajanan:'PPI-Laporan-Pajanan', ppi_checklist:'PPI-Daftar-Tilik', ppi_audit:'PPI-Audit-Kualitas', ppi_icra:'PPI-ICRA',
   audit_form1:'Audit-Hasil-Indikator', audit_temuan:'Audit-Temuan', risk_register:'Risiko-Register', risk_profil:'Risiko-Profil', risk_pemantauan:'Risiko-Pemantauan',
   mfk_register:'MFK-Register-Risiko', k3_pemetaan:'K3-Pemetaan', k3_perencanaan:'K3-Perencanaan', k3_b3:'K3-Inventaris-B3', pmp_rtl:'RTL-Indikator-Mutu-Prioritas'};
 
@@ -4191,7 +4342,7 @@ function recordSummary(collection, d){
   const cut = (s,n)=>String(s||'').substring(0,n);
   const m = {
     ikp_reports: x=>[x.tanggal, x.unit, cut(x.deskripsi,60)], ppi_pajanan: x=>[x.tanggalLaporan, x.nama], ppi_checklist: x=>[x.period, x.ruang],
-    ppi_audit: x=>[x.tanggal, x.ruang], audit_form1: x=>[x.tanggal, cut(x.indikator,60)], audit_temuan: x=>[x.tanggal, cut(x.temuan,60)],
+    ppi_audit: x=>[x.tanggal, x.ruang], ppi_icra: x=>[x.uraian, 'Skor '+x.score], audit_form1: x=>[x.tanggal, cut(x.indikator,60)], audit_temuan: x=>[x.tanggal, cut(x.temuan,60)],
     risk_register: x=>[x.kodeRisiko, cut(x.risiko,60)], risk_profil: x=>[x.kodeRisiko, cut(x.risikoPrioritas,60)], risk_pemantauan: x=>[x.kodeRisiko, x.trendRisiko],
     mfk_register: x=>[x.unitKerja, cut(x.risiko,60)], k3_pemetaan: x=>[x.klaster, x.ruangPelayanan], k3_perencanaan: x=>[x.klaster, cut(x.kegiatan,60)],
     k3_b3: x=>[x.bulan, x.namaBahan], inm_reports: x=>['Periode '+x.period], pmp_reports: x=>['Periode '+x.period+(x.level==='fasyankes'?' (Tahunan)':'')],
